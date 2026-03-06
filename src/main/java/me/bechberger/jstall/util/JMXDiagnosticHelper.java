@@ -142,6 +142,10 @@ public class JMXDiagnosticHelper implements AutoCloseable {
         return executeCommand("vmSystemProperties", "VM.system_properties");
     }
 
+    public long pid() {
+        return Long.parseLong(vm.id());
+    }
+
     public static String getThreadDump(long pid) throws IOException {
         try (JMXDiagnosticHelper helper = new JMXDiagnosticHelper(pid)) {
             return helper.getThreadDump();

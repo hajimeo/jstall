@@ -43,17 +43,29 @@ public class RecordingTestBuilder {
      */
     public void build(Path outputFile) throws IOException {
         Files.createDirectories(outputFile.getParent());
+        String rootPath = rootPathFromOutput(outputFile);
 
         try (ZipOutputStream zipOut = new ZipOutputStream(
                 Files.newOutputStream(outputFile))) {
-            writeMetadata(zipOut);
+            writeMetadata(zipOut, rootPath);
+            writeReadme(zipOut, rootPath);
             for (JvmRecording jvm : jvms) {
-                writeJvmData(zipOut, jvm);
+                writeJvmData(zipOut, rootPath, jvm);
             }
         }
     }
 
-    private void writeMetadata(ZipOutputStream zipOut) throws IOException {
+    private String rootPathFromOutput(Path outputFile) {
+        String fileName = outputFile.getFileName().toString();
+        int dot = fileName.lastIndexOf('.');
+        String base = dot > 0 ? fileName.substring(0, dot) : fileName;
+        if (base.isBlank()) {
+            base = "recording";
+        }
+        return base + "/";
+    }
+
+    private void writeMetadata(ZipOutputStream zipOut, String rootPath) throws IOException {
         Map<String, JsonValue> metadata = new LinkedHashMap<>();
         metadata.put("format_version", new JsonValue.JsonNumber(RecordingProvider.FORMAT_VERSION));
         metadata.put("version", new JsonValue.JsonString(version));
@@ -74,30 +86,51 @@ public class RecordingTestBuilder {
         JsonValue.JsonObject metadataObj = new JsonValue.JsonObject(metadata);
         String json = JsonPrinter.print(metadataObj);
 
-        ZipEntry entry = new ZipEntry("metadata.json");
+        ZipEntry entry = new ZipEntry(rootPath + "metadata.json");
         zipOut.putNextEntry(entry);
         zipOut.write(json.getBytes(StandardCharsets.UTF_8));
         zipOut.closeEntry();
     }
 
-    private void writeJvmData(ZipOutputStream zipOut, JvmRecording jvm) throws IOException {
+    private void writeReadme(ZipOutputStream zipOut, String rootPath) throws IOException {
+        StringBuilder content = new StringBuilder();
+        content.append("JStall Recording Archive\n");
+        content.append("========================\n\n");
+        content.append("Created by jstall record.\n");
+        content.append("Project: https://github.com/parttimenerd/jstall\n\n");
+        content.append("Recorded JVMs:\n");
+        for (JvmRecording jvm : jvms) {
+            content.append("- ").append(jvm.pid);
+            content.append(": ").append(jvm.mainClass);
+            if (!jvm.successful) {
+                content.append(" [FAILED]");
+            }
+            content.append("\n  → See folder: ").append(jvm.pid).append("/\n");
+        }
+        writeZipEntry(zipOut, rootPath + "README", content.toString());
+    }
+
+    private void writeJvmData(ZipOutputStream zipOut, String rootPath, JvmRecording jvm) throws IOException {
         // Write thread dumps
         for (int i = 0; i < jvm.threadDumps.size(); i++) {
-            String fileName = String.format("%d/thread-dumps/%03d-%d.txt",
+            String fileName = String.format("%s%d/thread-dumps/%03d-%d.txt",
+                rootPath,
                 jvm.pid, i, jvm.threadDumpTimestamps.get(i));
             writeZipEntry(zipOut, fileName, jvm.threadDumps.get(i));
         }
 
         // Write system properties if collected
         for (int i = 0; i < jvm.systemProperties.size(); i++) {
-            String fileName = String.format("%d/system-properties/%03d-%d.txt",
+            String fileName = String.format("%s%d/system-properties/%03d-%d.txt",
+                rootPath,
                 jvm.pid, i, jvm.propTimestamps.get(i));
             writeZipEntry(zipOut, fileName, jvm.systemProperties.get(i));
         }
 
         // Write system environment if collected
         for (int i = 0; i < jvm.systemEnvironments.size(); i++) {
-            String fileName = String.format("%d/system-environment/%03d-%d.json",
+            String fileName = String.format("%s%d/system-environment/%03d-%d.json",
+                rootPath,
                 jvm.pid, i, jvm.envTimestamps.get(i));
             writeZipEntry(zipOut, fileName, jvm.systemEnvironments.get(i));
         }
@@ -109,7 +142,8 @@ public class RecordingTestBuilder {
             for (int i = 0; i < samples.size(); i++) {
                 long timestamp = jvm.otherDataTimestamps.getOrDefault(
                     dataType + ":" + i, System.currentTimeMillis() + i * 1000);
-                String fileName = String.format("%d/%s/%03d-%d.txt",
+                String fileName = String.format("%s%d/%s/%03d-%d.txt",
+                    rootPath,
                     jvm.pid, dataType, i, timestamp);
                 writeZipEntry(zipOut, fileName, samples.get(i));
             }

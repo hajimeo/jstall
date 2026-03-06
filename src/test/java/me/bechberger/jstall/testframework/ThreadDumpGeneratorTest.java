@@ -1,6 +1,7 @@
 package me.bechberger.jstall.testframework;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -12,6 +13,7 @@ import java.util.List;
  * Run this test to generate sample thread dumps for use in other tests.
  * The dumps are saved to src/test/resources/thread-dumps/
  */
+@EnabledIfSystemProperty(named = "jstall.generateThreadDumpFixtures", matches = "true")
 public class ThreadDumpGeneratorTest {
 
     private static final Path TEST_RESOURCES = Paths.get("src/test/resources/thread-dumps");

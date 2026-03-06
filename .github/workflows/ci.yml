@@ -49,6 +49,14 @@ jobs:
       - name: Run tests
         run: mvn clean test
 
+      - name: Regenerate thread-dump fixtures
+        if: matrix.java-version == 21
+        run: mvn test -Dtest=ThreadDumpGeneratorTest -Djstall.generateThreadDumpFixtures=true
+
+      - name: Run tests with regenerated fixtures
+        if: matrix.java-version == 21
+        run: mvn test
+
       - name: Build + test minimal variant
         if: matrix.java-version == 21
         run: python3 release.py test-minimal

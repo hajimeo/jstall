@@ -22,6 +22,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Enumeration;
 import java.util.stream.Collectors;
 import java.util.zip.ZipFile;
 
@@ -35,10 +36,12 @@ public class ReplayProvider implements ThreadDumpProvider {
 
     private final Path recordingZip;
     private final JsonValue.JsonObject metadata;
+    private final String rootPath;
 
     public ReplayProvider(Path recordingZip) throws IOException {
         this.recordingZip = recordingZip;
         this.metadata = RecordingProvider.loadMetadata(recordingZip);
+        this.rootPath = detectRootPath(recordingZip);
     }
 
     public JsonValue.JsonObject metadata() {
@@ -93,7 +96,7 @@ public class ReplayProvider implements ThreadDumpProvider {
     }
 
     public List<ThreadDumpSnapshot> loadForPid(long pid) throws IOException {
-        String pidPath = pid + "/";
+        String pidPath = rootPath + pid + "/";
 
         JcmdRequirement threadDumpRequirement =
             new JcmdRequirement(THREAD_PRINT_COMMAND, null, CollectionSchedule.once());
@@ -141,7 +144,7 @@ public class ReplayProvider implements ThreadDumpProvider {
      * The requirement type is inferred from the first path segment below {@code <pid>/}.
      */
     public Map<String, List<CollectedData>> loadCollectedDataByTypeForPid(long pid) throws IOException {
-        String pidPrefix = pid + "/";
+        String pidPrefix = rootPath + pid + "/";
         Map<String, List<CollectedDataWithName>> grouped = new HashMap<>();
 
         try (ZipFile zipFile = new ZipFile(recordingZip.toFile())) {
@@ -189,6 +192,23 @@ public class ReplayProvider implements ThreadDumpProvider {
             byType.put(entry.getKey(), sorted);
         }
         return byType;
+    }
+
+    private String detectRootPath(Path zipPath) throws IOException {
+        try (ZipFile zipFile = new ZipFile(zipPath.toFile())) {
+            if (zipFile.getEntry("metadata.json") != null) {
+                return "";
+            }
+            Enumeration<? extends java.util.zip.ZipEntry> entries = zipFile.entries();
+            while (entries.hasMoreElements()) {
+                java.util.zip.ZipEntry entry = entries.nextElement();
+                String name = entry.getName();
+                if (!entry.isDirectory() && name.endsWith("/metadata.json")) {
+                    return name.substring(0, name.length() - "metadata.json".length());
+                }
+            }
+            return "";
+        }
     }
 
     private long parseTimestampFromFileName(String fileName) {

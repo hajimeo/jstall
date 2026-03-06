@@ -138,21 +138,23 @@
  * Data is stored in ZIP files with structure:
  * <pre>
  * recording.zip
- * ├── metadata.json               # JVM list, jstall version, timestamp
- * └── &lt;pid&gt;/
- *     ├── manifest.json           # Requirements used, collection timestamps
- *     ├── thread-dumps/
- *     │   ├── 000-1234567890.txt  # Sample 0 at timestamp
- *     │   ├── 001-1234567891.txt
- *     │   └── 002-1234567892.txt
- *     ├── system-properties/
- *     │   └── data.txt
- *     ├── system-environment/
- *     │   ├── 000-1234567890.json
- *     │   └── 001-1234567891.json
- *     └── jcmd-GC_heap_info/      # Command name sanitized
- *         ├── 000-1234567890.txt
- *         └── 001-1234567891.txt
+ * └── recording/
+ *     ├── metadata.json               # JVM list, jstall version, timestamp
+ *     ├── README                      # Short format guide and project link
+ *     └── &lt;pid&gt;/
+ *         ├── manifest.json           # Requirements used, collection timestamps
+ *         ├── thread-dumps/
+ *         │   ├── 000-1234567890.txt  # Sample 0 at timestamp
+ *         │   ├── 001-1234567891.txt
+ *         │   └── 002-1234567892.txt
+ *         ├── system-properties/
+ *         │   └── data.txt
+ *         ├── system-environment/
+ *         │   ├── 000-1234567890.json
+ *         │   └── 001-1234567891.json
+ *         └── jcmd-GC_heap_info/      # Command name sanitized
+ *             ├── 000-1234567890.txt
+ *             └── 001-1234567891.txt
  * </pre>
  * 
  * @see me.bechberger.jstall.util.JcmdCommands for list of supported jcmd commands

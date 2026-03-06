@@ -3,6 +3,7 @@ package me.bechberger.jstall.provider;
 import me.bechberger.jstall.provider.requirement.CollectedData;
 import me.bechberger.jstall.provider.requirement.DataRequirement;
 import me.bechberger.jstall.provider.requirement.DataRequirements;
+import me.bechberger.jstall.provider.requirement.IntervalWindowRequirement;
 import me.bechberger.jstall.util.JMXDiagnosticHelper;
 
 import java.io.IOException;
@@ -20,6 +21,7 @@ public class DataCollector {
     private final DataRequirements requirements;
     private final ScheduledExecutorService scheduler;
     private final boolean ownScheduler;
+    private static final long BETWEEN_SAMPLE_SAFETY_MARGIN_MS = 200;
     
     public DataCollector(JMXDiagnosticHelper helper, DataRequirements requirements) {
         this(helper, requirements, null);
@@ -95,87 +97,72 @@ public class DataCollector {
     private void collectWithIntervals(Map<Long, List<DataRequirement>> byInterval,
                                      Map<DataRequirement, List<CollectedData>> results) 
             throws IOException {
-        
-        // Find the max count needed for each interval
-        Map<Long, Integer> maxCountByInterval = byInterval.entrySet().stream()
-            .collect(Collectors.toMap(
-                Map.Entry::getKey,
-                e -> e.getValue().stream()
-                    .mapToInt(r -> r.getSchedule().count())
-                    .max()
-                    .orElse(1)
-            ));
-        
-        // Execute collections synchronized by time
-        CountDownLatch latch = new CountDownLatch(byInterval.size());
-        List<Exception> exceptions = new CopyOnWriteArrayList<>();
-        
+        List<Exception> exceptions = new ArrayList<>();
+
         for (Map.Entry<Long, List<DataRequirement>> entry : byInterval.entrySet()) {
             long intervalMs = entry.getKey();
             List<DataRequirement> reqs = entry.getValue();
-            
-            // Start interval collection on scheduler
-            scheduler.execute(() -> {
-                try {
-                    for (DataRequirement req : reqs) {
-                        List<CollectedData> samples = new ArrayList<>();
-                        int count = req.getSchedule().count();
-                        
-                        for (int i = 0; i < count; i++) {
-                            try {
-                                samples.add(req.collect(helper, i));
-                            } catch (IOException e) {
-                                exceptions.add(e);
-                                samples.add(new CollectedData(
-                                    System.currentTimeMillis(),
-                                    "",
-                                    Map.of("error", e.getMessage())
-                                ));
-                            }
-                            
-                            // Wait for interval (except after last sample)
-                            if (i < count - 1) {
-                                try {
-                                    Thread.sleep(intervalMs);
-                                } catch (InterruptedException e) {
-                                    Thread.currentThread().interrupt();
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        results.put(req, samples);
-                    }
-                } finally {
-                    latch.countDown();
-                }
-            });
-        }
-        
-        // Wait for all interval collections to complete
-        try {
-            // Calculate max wait time based on longest collection schedule
-            long maxDuration = byInterval.entrySet().stream()
-                .mapToLong(e -> {
-                    long intervalMs = e.getKey();
-                    int maxCount = maxCountByInterval.get(intervalMs);
-                    return (maxCount - 1) * intervalMs;
-                })
-                .max()
-                .orElse(0);
-            
-            // Add buffer for overhead
-            long waitTime = maxDuration + 30_000; // Max duration + 30 seconds buffer
-            
-            if (!latch.await(waitTime, TimeUnit.MILLISECONDS)) {
-                throw new IOException("Timeout waiting for data collection to complete");
+
+            for (DataRequirement req : reqs) {
+                results.computeIfAbsent(req, __ -> new ArrayList<>());
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("Interrupted while collecting data", e);
+
+            int maxCount = reqs.stream()
+                .mapToInt(r -> r.getSchedule().count())
+                .max()
+                .orElse(1);
+
+            for (int sampleIndex = 0; sampleIndex < maxCount; sampleIndex++) {
+                long cycleStart = System.currentTimeMillis();
+
+                for (DataRequirement req : reqs) {
+                    if (req.getSchedule().count() <= sampleIndex || req instanceof IntervalWindowRequirement) {
+                        continue;
+                    }
+                    try {
+                        results.get(req).add(req.collect(helper, sampleIndex));
+                    } catch (IOException e) {
+                        exceptions.add(e);
+                        results.get(req).add(new CollectedData(
+                            System.currentTimeMillis(),
+                            "",
+                            Map.of("error", e.getMessage())
+                        ));
+                    }
+                }
+
+                if (sampleIndex < maxCount - 1) {
+                    long elapsedAfterPointCollection = System.currentTimeMillis() - cycleStart;
+                    long windowMs = Math.max(0, intervalMs - elapsedAfterPointCollection - BETWEEN_SAMPLE_SAFETY_MARGIN_MS);
+
+                    for (DataRequirement req : reqs) {
+                        if (!(req instanceof IntervalWindowRequirement windowRequirement)
+                            || req.getSchedule().count() <= sampleIndex) {
+                            continue;
+                        }
+                        try {
+                            CollectedData sample = windowRequirement.collectWindow(helper, sampleIndex, windowMs);
+                            if (!"true".equals(sample.metadata().get("skip"))) {
+                                results.get(req).add(sample);
+                            }
+                        } catch (IOException ignored) {
+                        }
+                    }
+
+                    long elapsedTotal = System.currentTimeMillis() - cycleStart;
+                    long sleepMs = intervalMs - elapsedTotal;
+                    if (sleepMs > 0) {
+                        try {
+                            Thread.sleep(sleepMs);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new IOException("Interrupted while collecting interval data", e);
+                        }
+                    }
+                }
+            }
         }
-        
-        // If there were collection errors, throw the first one
+
         if (!exceptions.isEmpty()) {
             Exception first = exceptions.get(0);
             if (first instanceof IOException io) {

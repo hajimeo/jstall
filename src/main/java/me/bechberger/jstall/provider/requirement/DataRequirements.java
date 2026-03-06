@@ -90,6 +90,8 @@ public class DataRequirements {
             return new SystemEnvironmentRequirement(schedule);
         } else if (req instanceof JcmdRequirement jcmd) {
             return new JcmdRequirement(jcmd.getCommand(), jcmd.getArgs(), schedule);
+        } else if (req instanceof AsyncProfilerWindowRequirement profileRequirement) {
+            return new AsyncProfilerWindowRequirement(schedule, profileRequirement.getEvent());
         }
         // Keep original for requirements that don't support schedule changes
         return req;
@@ -194,6 +196,13 @@ public class DataRequirements {
          */
         public Builder addSystemEnvOnce() {
             requirements.add(new SystemEnvironmentRequirement(CollectionSchedule.once()));
+            return this;
+        }
+
+        public Builder addAsyncProfilerWindows() {
+            if (defaultCount > 1) {
+                requirements.add(AsyncProfilerWindowRequirement.forSampling(defaultCount, defaultIntervalMs));
+            }
             return this;
         }
         

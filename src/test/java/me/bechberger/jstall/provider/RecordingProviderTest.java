@@ -247,8 +247,9 @@ class RecordingProviderTest {
 
         // Verify ZIP structure
         try (ZipFile zipFile = new ZipFile(outputFile.toFile())) {
-            assertTrue(zipFile.getEntry("metadata.json") != null);
-            assertTrue(zipFile.getEntry("6000/thread-dumps/000-" + timestamp + ".txt") != null);
+            assertTrue(zipFile.getEntry("structure-recording/metadata.json") != null);
+            assertTrue(zipFile.getEntry("structure-recording/README") != null);
+            assertTrue(zipFile.getEntry("structure-recording/6000/thread-dumps/000-" + timestamp + ".txt") != null);
         }
     }
 

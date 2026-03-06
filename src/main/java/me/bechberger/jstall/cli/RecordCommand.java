@@ -14,6 +14,7 @@ import me.bechberger.jstall.analyzer.impl.SystemProcessAnalyzer;
 import me.bechberger.jstall.analyzer.impl.ThreadsAnalyzer;
 import me.bechberger.jstall.analyzer.impl.WaitingThreadsAnalyzer;
 import me.bechberger.jstall.provider.RecordingProvider;
+import me.bechberger.jstall.provider.requirement.AsyncProfilerWindowRequirement;
 import me.bechberger.jstall.provider.requirement.DataRequirements;
 import me.bechberger.jstall.util.JVMDiscovery;
 import me.bechberger.jstall.util.JcmdCommands;
@@ -108,6 +109,14 @@ public class RecordCommand implements Callable<Integer> {
         DataRequirements merged = DataRequirements.empty();
         for (Analyzer analyzer : allRecordableAnalyzers()) {
             merged = merged.merge(analyzer.getDataRequirements(options));
+        }
+
+        if (count > 1 && AsyncProfilerWindowRequirement.isPlatformSupported()) {
+            DataRequirements profiling = DataRequirements.builder()
+                .withDefaults(count, intervalMs)
+                .addAsyncProfilerWindows()
+                .build();
+            merged = merged.merge(profiling);
         }
 
         if (include != null) {
