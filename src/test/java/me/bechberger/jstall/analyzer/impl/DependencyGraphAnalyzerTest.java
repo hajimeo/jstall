@@ -2,6 +2,8 @@ package me.bechberger.jstall.analyzer.impl;
 
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
+import me.bechberger.jstall.model.ThreadDumpSnapshot;
 import me.bechberger.jthreaddump.model.LockInfo;
 import me.bechberger.jthreaddump.model.StackFrame;
 import me.bechberger.jthreaddump.model.ThreadDump;
@@ -70,7 +72,8 @@ class DependencyGraphAnalyzerTest {
                 null
         );
 
-        AnalyzerResult result = analyzer.analyzeThreadDumps(List.of(dump), Map.of());
+        ThreadDumpSnapshot snapshot = new ThreadDumpSnapshot(dump, "", null, null);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of(snapshot)), Map.of());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.output().isEmpty());
@@ -129,7 +132,8 @@ class DependencyGraphAnalyzerTest {
                 null
         );
 
-        AnalyzerResult result = analyzer.analyzeThreadDumps(List.of(dump), Map.of());
+        ThreadDumpSnapshot snapshot = new ThreadDumpSnapshot(dump, "", null, null);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of(snapshot)), Map.of());
 
         assertEquals(0, result.exitCode());
         String output = result.output();
@@ -218,7 +222,8 @@ class DependencyGraphAnalyzerTest {
                 null
         );
 
-        AnalyzerResult result = analyzer.analyzeThreadDumps(List.of(dump), Map.of());
+        ThreadDumpSnapshot snapshot = new ThreadDumpSnapshot(dump, "", null, null);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of(snapshot)), Map.of());
 
         assertEquals(0, result.exitCode());
         String output = result.output();
@@ -308,7 +313,8 @@ class DependencyGraphAnalyzerTest {
                 null
         );
 
-        AnalyzerResult result = analyzer.analyzeThreadDumps(List.of(dump), Map.of());
+        ThreadDumpSnapshot snapshot = new ThreadDumpSnapshot(dump, "", null, null);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of(snapshot)), Map.of());
 
         assertEquals(0, result.exitCode());
         String output = result.output();
@@ -422,7 +428,9 @@ class DependencyGraphAnalyzerTest {
         );
 
         // Analyze with both dumps
-        AnalyzerResult result = analyzer.analyzeThreadDumps(List.of(oldDump, newDump), Map.of());
+        ThreadDumpSnapshot oldSnapshot = new ThreadDumpSnapshot(oldDump, "", null, null);
+        ThreadDumpSnapshot newSnapshot = new ThreadDumpSnapshot(newDump, "", null, null);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of(oldSnapshot, newSnapshot)), Map.of());
 
         assertEquals(0, result.exitCode());
         String output = result.output();
@@ -498,7 +506,8 @@ class DependencyGraphAnalyzerTest {
                 null
         );
 
-        AnalyzerResult result = analyzer.analyzeThreadDumps(List.of(dump), Map.of());
+        ThreadDumpSnapshot snapshot = new ThreadDumpSnapshot(dump, "", null, null);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of(snapshot)), Map.of());
 
         assertEquals(0, result.exitCode());
         String output = result.output();

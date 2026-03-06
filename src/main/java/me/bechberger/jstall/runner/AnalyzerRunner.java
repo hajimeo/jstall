@@ -2,6 +2,7 @@ package me.bechberger.jstall.runner;
 
 import me.bechberger.jstall.analyzer.Analyzer;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
+import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.jstall.model.ThreadDumpSnapshot;
 
 import java.util.*;
@@ -38,7 +39,8 @@ public class AnalyzerRunner {
             List<ThreadDumpSnapshot> analyzerDumps = filterDumps(analyzer, dumps);
 
             // Run analyzer
-            AnalyzerResult result = analyzer.analyze(analyzerDumps, analyzerOptions);
+            ResolvedData data = ResolvedData.fromDumps(analyzerDumps);
+            AnalyzerResult result = analyzer.analyze(data, analyzerOptions);
 
             // Append output (with section header) only if analyzer has something to display
             if (result.shouldDisplay() && !result.output().isBlank()) {

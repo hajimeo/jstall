@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Add `jvm-support` command to check if a JVM is outdated
+- Add `record` and replay
 
 ## [0.4.11] - 2026-01-28
 

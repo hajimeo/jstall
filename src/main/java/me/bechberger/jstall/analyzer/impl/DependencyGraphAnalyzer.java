@@ -3,13 +3,13 @@ package me.bechberger.jstall.analyzer.impl;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.BaseAnalyzer;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.jstall.analyzer.ThreadActivityCategorizer;
 import me.bechberger.jthreaddump.model.LockInfo;
 import me.bechberger.jthreaddump.model.ThreadDump;
 import me.bechberger.jthreaddump.model.ThreadInfo;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Analyzes thread dependencies by showing which threads wait on locks held by other threads.
@@ -33,7 +33,11 @@ public class DependencyGraphAnalyzer extends BaseAnalyzer {
     }
 
     @Override
-    public AnalyzerResult analyzeThreadDumps(List<ThreadDump> dumps, Map<String, Object> options) {
+    public AnalyzerResult analyze(ResolvedData data, Map<String, Object> options) {
+        List<ThreadDump> dumps = data.dumps().stream().map(dump -> dump.parsed()).toList();
+        if (dumps.isEmpty()) {
+            return AnalyzerResult.nothing();
+        }
         // Use the latest dump for dependency analysis
         ThreadDump latestDump = dumps.get(dumps.size() - 1);
 

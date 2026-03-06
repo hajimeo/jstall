@@ -2,6 +2,8 @@ package me.bechberger.jstall.analyzer.impl;
 
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
+import me.bechberger.jstall.model.ThreadDumpSnapshot;
 import me.bechberger.jthreaddump.model.ThreadDump;
 import me.bechberger.jthreaddump.parser.ThreadDumpParser;
 import org.junit.jupiter.api.Test;
@@ -11,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -45,7 +48,7 @@ class WaitingThreadsAnalyzerTest {
     @Test
     void testAnalyzeWithNoDumps() {
         WaitingThreadsAnalyzer analyzer = new WaitingThreadsAnalyzer();
-        AnalyzerResult result = analyzer.analyzeThreadDumps(List.of(), Map.of());
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of()), Map.of());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.output().contains("No thread dumps"));
@@ -63,7 +66,10 @@ class WaitingThreadsAnalyzerTest {
         // Create multiple thread dumps showing the same pattern
         List<ThreadDump> dumps = createWaitingThreadDumps(3);
 
-        AnalyzerResult result = analyzer.analyzeThreadDumps(dumps, Map.of());
+        List<ThreadDumpSnapshot> snapshots = dumps.stream()
+            .map(dump -> new ThreadDumpSnapshot(dump, "", null, null))
+            .collect(Collectors.toList());
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(snapshots), Map.of());
 
         // Should detect the waiting threads
         assertEquals(0, result.exitCode());
@@ -94,7 +100,10 @@ class WaitingThreadsAnalyzerTest {
         // Create dumps with active threads
         List<ThreadDump> dumps = createActiveThreadDumps(3);
 
-        AnalyzerResult result = analyzer.analyzeThreadDumps(dumps, Map.of());
+        List<ThreadDumpSnapshot> snapshots = dumps.stream()
+            .map(dump -> new ThreadDumpSnapshot(dump, "", null, null))
+            .collect(Collectors.toList());
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(snapshots), Map.of());
 
         // Should not display anything since no threads are waiting without progress
         assertEquals(0, result.exitCode());

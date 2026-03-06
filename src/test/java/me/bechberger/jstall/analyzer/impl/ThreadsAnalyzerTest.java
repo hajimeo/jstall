@@ -2,6 +2,8 @@ package me.bechberger.jstall.analyzer.impl;
 
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
+import me.bechberger.jstall.model.ThreadDumpSnapshot;
 import me.bechberger.jthreaddump.model.StackFrame;
 import me.bechberger.jthreaddump.model.ThreadDump;
 import me.bechberger.jthreaddump.model.ThreadInfo;
@@ -44,7 +46,7 @@ class ThreadsAnalyzerTest {
     void testAnalyzeWithNoDumps() {
         ThreadsAnalyzer analyzer = new ThreadsAnalyzer();
 
-        AnalyzerResult result = analyzer.analyze(List.of(), Map.of());
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of()), Map.of());
 
         assertEquals(0, result.exitCode());
         assertNotNull(result.output());
@@ -143,7 +145,9 @@ class ThreadsAnalyzerTest {
             null
         );
 
-        AnalyzerResult result = analyzer.analyzeThreadDumps(List.of(dump1, dump2), Map.of("top", 10));
+        ThreadDumpSnapshot snapshot1 = new ThreadDumpSnapshot(dump1, "", null, null);
+        ThreadDumpSnapshot snapshot2 = new ThreadDumpSnapshot(dump2, "", null, null);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of(snapshot1, snapshot2)), Map.of("top", 10));
 
         assertEquals(0, result.exitCode());
         String output = result.output();
@@ -184,7 +188,8 @@ class ThreadsAnalyzerTest {
             null
         );
 
-        AnalyzerResult result = analyzer.analyzeThreadDumps(List.of(dump), Map.of());
+        ThreadDumpSnapshot snapshot = new ThreadDumpSnapshot(dump, "", null, null);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of(snapshot)), Map.of());
 
         assertEquals(0, result.exitCode());
         String output = result.output();

@@ -3,8 +3,8 @@ package me.bechberger.jstall.runner;
 import me.bechberger.jstall.analyzer.Analyzer;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.jstall.model.ThreadDumpSnapshot;
-import me.bechberger.jthreaddump.model.ThreadDump;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -111,7 +111,7 @@ class AnalyzerRunnerTest {
             }
 
             @Override
-            public AnalyzerResult analyzeThreadDumps(List<ThreadDump> dumps, Map<String, Object> options) {
+            public AnalyzerResult analyze(ResolvedData data, Map<String, Object> options) {
                 return AnalyzerResult.withExitCode("Output from " + name, exitCode);
             }
         }

@@ -2,6 +2,7 @@ package me.bechberger.jstall.analyzer.impl;
 
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.jstall.model.ThreadDumpSnapshot;
 import me.bechberger.jthreaddump.model.ThreadDump;
 import me.bechberger.jthreaddump.parser.ThreadDumpParser;
@@ -77,7 +78,7 @@ class StatusAnalyzerTest {
 
         // Use at least 2 dumps since MostWorkAnalyzer requires MANY
         List<ThreadDumpSnapshot> dumps = createTestDumps(2);
-        AnalyzerResult result = analyzer.analyze(dumps, options);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(dumps), options);
 
         // Should return result from constituent analyzers
         assertEquals(0, result.exitCode());
@@ -94,7 +95,7 @@ class StatusAnalyzerTest {
 
         // Use at least 2 dumps
         List<ThreadDumpSnapshot> dumps = createTestDumps(2);
-        AnalyzerResult result = analyzer.analyze(dumps, options);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(dumps), options);
 
         // Output should contain sections from both analyzers
         String output = result.output();
@@ -117,7 +118,7 @@ class StatusAnalyzerTest {
 
         // Should not throw exception even though some options aren't used by all analyzers
         assertDoesNotThrow(() -> {
-            AnalyzerResult result = analyzer.analyze(dumps, options);
+            AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(dumps), options);
             assertNotNull(result);
         });
     }
@@ -132,7 +133,7 @@ class StatusAnalyzerTest {
         Map<String, Object> options = Map.of("keep", false);
 
         List<ThreadDumpSnapshot> dumps = createTestDumps(2);
-        AnalyzerResult result = analyzer.analyze(dumps, options);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(dumps), options);
 
         // With minimal dumps, exit code should be 0
         assertEquals(0, result.exitCode());

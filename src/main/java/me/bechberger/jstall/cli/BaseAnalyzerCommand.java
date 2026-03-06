@@ -1,17 +1,22 @@
 package me.bechberger.jstall.cli;
 
+import me.bechberger.jstall.Main;
 import me.bechberger.jstall.analyzer.Analyzer;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.femtocli.Spec;
 import me.bechberger.femtocli.annotations.Option;
 import me.bechberger.jstall.model.ThreadDumpSnapshot;
 import me.bechberger.jstall.provider.JThreadDumpProvider;
+import me.bechberger.jstall.provider.ReplayProvider;
 import me.bechberger.jstall.provider.ThreadDumpProvider;
+import me.bechberger.jstall.provider.requirement.CollectedData;
 import me.bechberger.jstall.util.JVMDiscovery;
 import me.bechberger.jstall.util.TargetResolver;
 import me.bechberger.femtocli.annotations.Parameters;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -69,20 +74,38 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
         return new HashMap<>();
     }
 
+    /**
+     * Safely retrieves the replay file path from the parent Main command.
+     * Returns null if spec is not injected (e.g. direct instantiation in tests)
+     * or if no replay file was specified.
+     */
+    private Path getReplayFilePath() {
+        if (spec == null) return null;
+        Main main = spec.getParent(Main.class);
+        return main != null ? main.getReplayFile() : null;
+    }
+
     @Override
     public Integer call() throws Exception {
         Analyzer analyzer = getAnalyzer();
+        boolean replayMode = getReplayFilePath() != null;
 
         // Show help and list JVMs if no targets specified
         if (targets == null || targets.isEmpty()) {
             spec.usage();
             System.out.println();
-            JVMDiscovery.printAvailableJVMs(System.out);
+            if (replayMode) {
+                printReplayTargets();
+            } else {
+                JVMDiscovery.printAvailableJVMs(System.out);
+            }
             return 1;
         }
 
         // Resolve all targets
-        TargetResolver.ResolutionResult resolution = TargetResolver.resolveMultiple(targets);
+        TargetResolver.ResolutionResult resolution = replayMode
+            ? resolveTargetsFromReplay(targets)
+            : TargetResolver.resolveMultiple(targets);
 
         if (!resolution.isSuccess()) {
             System.err.println("Error: " + resolution.errorMessage());
@@ -132,7 +155,7 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
                 .map(TargetResolver.ResolvedTarget.File::path)
                 .toList();
 
-        ThreadDumpProvider provider = new JThreadDumpProvider();
+        ThreadDumpProvider provider = createProvider();
         List<ThreadDumpSnapshot> threadDumps = provider.loadFromFiles(paths);
 
         int dumpCount = dumps != null ? dumps : analyzer.defaultDumpCount();
@@ -144,13 +167,14 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
         }
 
         Map<String, Object> options = buildOptions(dumpCount, intervalMs);
-        AnalyzerResult result = analyzer.analyze(threadDumps, options);
+        ResolvedData data = buildResolvedData(provider, null, threadDumps);
+        AnalyzerResult result = analyzer.analyze(data, options);
         System.out.println(result.output());
         return result.exitCode();
     }
 
     private Integer processSingleTarget(TargetResolver.ResolvedTarget target, Analyzer analyzer) throws Exception {
-        ThreadDumpProvider provider = new JThreadDumpProvider();
+        ThreadDumpProvider provider = createProvider();
         int dumpCount = dumps != null ? dumps : analyzer.defaultDumpCount();
         long intervalMs = interval != null ? interval.toMillis() : analyzer.defaultIntervalMs();
 
@@ -177,7 +201,8 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
         Map<String, Object> options = buildOptions(dumpCount, intervalMs);
 
         // Run analyzer
-        AnalyzerResult result = analyzer.analyze(threadDumps, options);
+        ResolvedData data = buildResolvedData(provider, target, threadDumps);
+        AnalyzerResult result = analyzer.analyze(data, options);
         System.out.println(result.output());
         return result.exitCode();
     }
@@ -196,7 +221,7 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
         for (TargetResolver.ResolvedTarget target : targets) {
             CompletableFuture<TargetResult> future = CompletableFuture.supplyAsync(() -> {
                 try {
-                    ThreadDumpProvider provider = new JThreadDumpProvider();
+                    ThreadDumpProvider provider = createProvider();
                     List<ThreadDumpSnapshot> threadDumps;
 
                     if (target instanceof TargetResolver.ResolvedTarget.Pid pid) {
@@ -208,7 +233,8 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
                         throw new IllegalStateException("Unknown target type: " + target);
                     }
 
-                    AnalyzerResult result = analyzer.analyze(threadDumps, options);
+                    ResolvedData data = buildResolvedData(provider, target, threadDumps);
+                    AnalyzerResult result = analyzer.analyze(data, options);
                     return new TargetResult(target, result, null);
 
                 } catch (Exception e) {
@@ -292,12 +318,102 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
     private Map<String, Object> buildOptions(int dumpCount, long intervalMs) {
         Map<String, Object> options = new HashMap<>();
         options.put("dumps", dumpCount);
-        options.put("interval", interval != null ? interval : (intervalMs + "ms"));
+        options.put("interval", intervalMs);
         options.put("keep", keep);
         if (intelligentFilter != null) {
             options.put("intelligent-filter", intelligentFilter);
         }
         options.putAll(getAdditionalOptions());
         return options;
+    }
+
+    private ThreadDumpProvider createProvider() throws IOException {
+        Path replayFile = getReplayFilePath();
+        if (replayFile != null) {
+            return new ReplayProvider(replayFile);
+        }
+        return new JThreadDumpProvider();
+    }
+
+    private ResolvedData buildResolvedData(ThreadDumpProvider provider,
+                                           TargetResolver.ResolvedTarget target,
+                                           List<ThreadDumpSnapshot> threadDumps) {
+        if (provider instanceof ReplayProvider replayProvider && target instanceof TargetResolver.ResolvedTarget.Pid pid) {
+            try {
+                Map<String, List<CollectedData>> collectedDataByType = replayProvider.loadCollectedDataByTypeForPid(pid.pid());
+                return ResolvedData.fromDumpsAndCollectedData(threadDumps, collectedDataByType);
+            } catch (IOException ignored) {
+                // Fall back to thread-dump-only resolved data if replay extras cannot be loaded.
+            }
+        }
+        return ResolvedData.fromDumps(threadDumps);
+    }
+
+    private void printReplayTargets() {
+        try {
+            ReplayProvider provider = new ReplayProvider(getReplayFilePath());
+            List<JVMDiscovery.JVMProcess> jvms = provider.listRecordedJvms(null);
+            if (jvms.isEmpty()) {
+                System.out.println("No recorded JVMs found in replay file.");
+                return;
+            }
+            System.out.println("Recorded JVMs:");
+            for (JVMDiscovery.JVMProcess jvm : jvms) {
+                System.out.println("  " + jvm);
+            }
+        } catch (IOException e) {
+            System.out.println("Failed to read replay file: " + e.getMessage());
+        }
+    }
+
+    private TargetResolver.ResolutionResult resolveTargetsFromReplay(List<String> requestedTargets) {
+        try {
+            ReplayProvider provider = new ReplayProvider(getReplayFilePath());
+            List<JVMDiscovery.JVMProcess> recorded = provider.listRecordedJvms(null);
+            List<TargetResolver.ResolvedTarget> resolved = new ArrayList<>();
+
+            for (String target : requestedTargets) {
+                if (target == null || target.isBlank()) {
+                    continue;
+                }
+
+                Path filePath = Path.of(target);
+                if (java.nio.file.Files.exists(filePath) && java.nio.file.Files.isRegularFile(filePath)) {
+                    resolved.add(new TargetResolver.ResolvedTarget.File(filePath));
+                    continue;
+                }
+
+                if (target.matches("\\d+")) {
+                    long pid = Long.parseLong(target);
+                    JVMDiscovery.JVMProcess match = recorded.stream()
+                        .filter(jvm -> jvm.pid() == pid)
+                        .findFirst()
+                        .orElse(null);
+                    if (match == null) {
+                        return TargetResolver.ResolutionResult.error("No recorded JVM found with PID " + pid, false);
+                    }
+                    resolved.add(new TargetResolver.ResolvedTarget.Pid(match.pid(), match.mainClass()));
+                    continue;
+                }
+
+                String filter = target.toLowerCase();
+                List<JVMDiscovery.JVMProcess> matches = recorded.stream()
+                    .filter(jvm -> jvm.mainClass().toLowerCase().contains(filter))
+                    .toList();
+                if (matches.isEmpty()) {
+                    return TargetResolver.ResolutionResult.error("No recorded JVMs found matching filter: " + target, false);
+                }
+                for (JVMDiscovery.JVMProcess match : matches) {
+                    resolved.add(new TargetResolver.ResolvedTarget.Pid(match.pid(), match.mainClass()));
+                }
+            }
+
+            if (resolved.isEmpty()) {
+                return TargetResolver.ResolutionResult.error("No targets specified", false);
+            }
+            return TargetResolver.ResolutionResult.success(resolved);
+        } catch (IOException e) {
+            return TargetResolver.ResolutionResult.error("Failed to open replay file: " + e.getMessage(), false);
+        }
     }
 }

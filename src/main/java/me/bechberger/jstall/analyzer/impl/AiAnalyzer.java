@@ -3,7 +3,8 @@ package me.bechberger.jstall.analyzer.impl;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.BaseAnalyzer;
 import me.bechberger.jstall.analyzer.DumpRequirement;
-import me.bechberger.jstall.model.ThreadDumpSnapshot;
+import me.bechberger.jstall.analyzer.ResolvedData;
+import me.bechberger.jstall.provider.requirement.DataRequirements;
 import me.bechberger.jstall.util.llm.LlmProvider;
 import me.bechberger.jstall.util.SystemAnalyzer;
 import org.jetbrains.annotations.NotNull;
@@ -66,7 +67,12 @@ public class AiAnalyzer extends BaseAnalyzer {
     }
 
     @Override
-    public AnalyzerResult analyze(List<ThreadDumpSnapshot> dumps, Map<String, Object> options) {
+    public DataRequirements getDataRequirements(Map<String, Object> options) {
+        return new StatusAnalyzer().getDataRequirements(options);
+    }
+
+    @Override
+    public AnalyzerResult analyze(ResolvedData data, Map<String, Object> options) {
         // Extract AI-specific options
         String model = getStringOption(options, "model", "gpt-50-nano");
         String customQuestion = getStringOption(options, "question", null);
@@ -80,7 +86,7 @@ public class AiAnalyzer extends BaseAnalyzer {
 
         // Run status analyzer to get thread dump analysis
         StatusAnalyzer statusAnalyzer = new StatusAnalyzer();
-        AnalyzerResult statusResult = statusAnalyzer.analyze(dumps, statusOptions);
+        AnalyzerResult statusResult = statusAnalyzer.analyze(data, statusOptions);
 
         if (statusResult.exitCode() != 0 && statusResult.exitCode() != 2) {
             // Status analyzer failed (but deadlocks are ok - exitCode 2)

@@ -4,7 +4,10 @@ import me.bechberger.jstall.cli.*;
 import me.bechberger.femtocli.CommandConfig;
 import me.bechberger.femtocli.FemtoCli;
 import me.bechberger.femtocli.annotations.Command;
+import me.bechberger.femtocli.annotations.Option;
 import me.bechberger.jstall.util.JVMDiscovery;
+
+import java.nio.file.Path;
 
 /**
  * Main entry point for JStall.
@@ -14,6 +17,7 @@ import me.bechberger.jstall.util.JVMDiscovery;
     description = "One-shot JVM inspection tool",
     version = "0.4.11",
     subcommands = {
+        RecordCommand.class,
         StatusCommand.class,
         DeadLockCommand.class,
         MostWorkCommand.class,
@@ -25,19 +29,17 @@ import me.bechberger.jstall.util.JVMDiscovery;
         ListCommand.class,
         SystemProcessCommand.class,
         JvmSupportCommand.class
-    }
+    },
+    defaultSubcommand = StatusCommand.class
 )
 public class Main implements Runnable {
 
+    public static final String VERSION = "0.4.11";
+
+    @Option(names = {"-f", "--file"}, description = "File path for replay mode (replay ZIP file created by record command)")
+    private Path file;
+
     public static void main(String[] args) {
-        // If no subcommand is specified, default to "status"
-        if (args.length > 0 && !args[0].startsWith("-") && isNumericOrFile(args[0])) {
-            // First arg is PID or file, prepend "status"
-            String[] newArgs = new String[args.length + 1];
-            newArgs[0] = "status";
-            System.arraycopy(args, 0, newArgs, 1, args.length);
-            args = newArgs;
-        }
         int exitCode = FemtoCli.builder()
             .commandConfig(Main::setFemtoCliCommandConfig)
             .run(new Main(), args);
@@ -47,7 +49,7 @@ public class Main implements Runnable {
     }
 
     public static void setFemtoCliCommandConfig(CommandConfig cfg) {
-        cfg.version = "0.4.11";
+        cfg.version = VERSION;
         cfg.mixinStandardHelpOptions = true;
         cfg.defaultValueHelpTemplate = ", default is ${DEFAULT-VALUE}";
         cfg.defaultValueOnNewLine = false;
@@ -59,6 +61,7 @@ public class Main implements Runnable {
         System.out.println("Usage: jstall <command> <pid|file> [options]");
         System.out.println();
         System.out.println("Available commands:");
+        System.out.println("  record            - Record diagnostics into a replayable ZIP");
         System.out.println("  list              - List running JVM processes (optionally filter by name)");
         System.out.println("  status            - Show overall status (deadlocks + most active threads)");
         System.out.println("  deadlock          - Check for deadlocks");
@@ -74,8 +77,7 @@ public class Main implements Runnable {
         JVMDiscovery.printAvailableJVMs(System.out);
     }
 
-    private static boolean isNumericOrFile(String arg) {
-        // Check if it's a PID (numeric) or a file path
-        return arg.matches("\\d+") || arg.endsWith(".txt") || arg.contains("/") || arg.contains("\\");
+    public Path getReplayFile() {
+        return file;
     }
 }

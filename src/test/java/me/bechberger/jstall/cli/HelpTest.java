@@ -12,11 +12,14 @@ public class HelpTest {
     @Test
     public void testMainHelp() {
         assertEquals("""
-                Usage: jstall [-hV] [COMMAND]
+                Usage: jstall [-hV] [--file=<file>] [COMMAND]
                 One-shot JVM inspection tool
-                  -h, --help       Show this help message and exit.
-                  -V, --version    Print version information and exit.
+                  -f, --file=<file>    File path for replay mode (replay ZIP file created by
+                                       record command)
+                  -h, --help           Show this help message and exit.
+                  -V, --version        Print version information and exit.
                 Commands:
+                  record            Record all analyzer data requirements into a replay ZIP
                   status            Run multiple analyzers over thread dumps (default command)
                   deadlock          Detect JVM-reported thread deadlocks
                   most-work         Identify threads doing the most work across dumps

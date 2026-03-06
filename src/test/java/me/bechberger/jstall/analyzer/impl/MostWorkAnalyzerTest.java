@@ -2,6 +2,8 @@ package me.bechberger.jstall.analyzer.impl;
 
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
+import me.bechberger.jstall.model.ThreadDumpSnapshot;
 import me.bechberger.jthreaddump.model.StackFrame;
 import me.bechberger.jthreaddump.model.ThreadDump;
 import me.bechberger.jthreaddump.model.ThreadInfo;
@@ -47,7 +49,7 @@ class MostWorkAnalyzerTest {
         MostWorkAnalyzer analyzer = new MostWorkAnalyzer();
 
         // MANY requirement means empty list should work (but would fail in runner validation)
-        AnalyzerResult result = analyzer.analyze(List.of(), Map.of());
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of()), Map.of());
 
         assertEquals(0, result.exitCode());
         assertNotNull(result.output());
@@ -58,7 +60,7 @@ class MostWorkAnalyzerTest {
         MostWorkAnalyzer analyzer = new MostWorkAnalyzer();
 
         // With no dumps, should still respect the top option
-        AnalyzerResult result = analyzer.analyze(List.of(), Map.of("top", 5));
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of()), Map.of("top", 5));
 
         assertEquals(0, result.exitCode());
         assertNotNull(result.output());
@@ -121,7 +123,9 @@ class MostWorkAnalyzerTest {
             null
         );
 
-        AnalyzerResult result = analyzer.analyzeThreadDumps(List.of(dump1, dump2), Map.of("top", 3));
+        ThreadDumpSnapshot snapshot1 = new ThreadDumpSnapshot(dump1, "", null, null);
+        ThreadDumpSnapshot snapshot2 = new ThreadDumpSnapshot(dump2, "", null, null);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of(snapshot1, snapshot2)), Map.of("top", 3));
 
         assertEquals(0, result.exitCode());
         String output = result.output();

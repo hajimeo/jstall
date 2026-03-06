@@ -1,5 +1,6 @@
 package me.bechberger.jstall.integration;
 
+import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.jstall.analyzer.impl.MostWorkAnalyzer;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.model.ThreadDumpSnapshot;
@@ -40,7 +41,7 @@ public class MostWorkAnalyzerIntegrationTest {
             }
             // Analyze
             MostWorkAnalyzer analyzer = new MostWorkAnalyzer();
-            AnalyzerResult result = analyzer.analyze(dumps, Map.of("top", 3));
+            AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(dumps), Map.of("top", 3));
 
             // Verify
             assertEquals(0, result.exitCode());
@@ -72,7 +73,7 @@ public class MostWorkAnalyzerIntegrationTest {
             }
             // Test with top=2
             MostWorkAnalyzer analyzer = new MostWorkAnalyzer();
-            AnalyzerResult result = analyzer.analyze(dumps, Map.of("top", 2));
+            AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(dumps), Map.of("top", 2));
 
             assertEquals(0, result.exitCode());
             assertFalse(result.output().isBlank());

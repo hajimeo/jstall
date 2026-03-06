@@ -3,6 +3,7 @@ package me.bechberger.jstall.analyzer.impl;
 import me.bechberger.jstall.analyzer.BaseAnalyzer;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.jstall.analyzer.ThreadActivityCategorizer;
 import me.bechberger.jthreaddump.model.ThreadDump;
 import me.bechberger.jthreaddump.model.ThreadInfo;
@@ -32,7 +33,8 @@ public class MostWorkAnalyzer extends BaseAnalyzer {
     }
 
     @Override
-    public AnalyzerResult analyzeThreadDumps(List<ThreadDump> dumps, Map<String, Object> options) {
+    public AnalyzerResult analyze(ResolvedData data, Map<String, Object> options) {
+        List<ThreadDump> dumps = data.dumps().stream().map(dump -> dump.parsed()).toList();
         int topN = getIntOption(options, "top", 3);
         boolean ignoreEmptyStacks = getNoNativeOption(options);
         int stackDepth = getStackDepthOption(options);
@@ -140,7 +142,6 @@ public class MostWorkAnalyzer extends BaseAnalyzer {
         final List<ThreadInfo> threadInfos = new ArrayList<>();
         final Map<Thread.State, Integer> stateCounts = new HashMap<>();
         double maxElapsedTimeSec = 0.0;
-        boolean hasElapsedTimeData = false;
 
         ThreadActivity(ThreadInfo thread) {
             super(thread);
@@ -162,7 +163,6 @@ public class MostWorkAnalyzer extends BaseAnalyzer {
             // Track elapsed time if available
             if (thread.elapsedTimeSec() != null) {
                 maxElapsedTimeSec = Math.max(maxElapsedTimeSec, thread.elapsedTimeSec());
-                hasElapsedTimeData = true;
             }
 
             // Build stack trace string (without state, we'll show it separately)

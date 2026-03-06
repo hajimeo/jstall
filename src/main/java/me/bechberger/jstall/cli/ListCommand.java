@@ -1,10 +1,14 @@
 package me.bechberger.jstall.cli;
 
 import me.bechberger.femtocli.annotations.Command;
+import me.bechberger.jstall.Main;
+import me.bechberger.jstall.provider.ReplayProvider;
 import me.bechberger.jstall.util.JVMDiscovery;
 import me.bechberger.femtocli.annotations.Parameters;
+import me.bechberger.femtocli.Spec;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -24,10 +28,20 @@ public class ListCommand implements Callable<Integer> {
     )
     private String filter;
 
+    private Spec spec;
+
     @Override
     public Integer call() throws Exception {
         try {
-            List<JVMDiscovery.JVMProcess> jvms = JVMDiscovery.listJVMs(filter);
+            List<JVMDiscovery.JVMProcess> jvms;
+            Main main = spec != null ? spec.getParent(Main.class) : null;
+            Path replayFile = main != null ? main.getReplayFile() : null;
+            if (replayFile != null) {
+                ReplayProvider provider = new ReplayProvider(replayFile);
+                jvms = provider.listRecordedJvms(filter);
+            } else {
+                jvms = JVMDiscovery.listJVMs(filter);
+            }
 
             if (jvms.isEmpty()) {
                 if (filter != null && !filter.isBlank()) {

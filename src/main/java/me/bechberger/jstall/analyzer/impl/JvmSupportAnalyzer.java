@@ -3,13 +3,13 @@ package me.bechberger.jstall.analyzer.impl;
 import me.bechberger.jstall.analyzer.Analyzer;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
-import me.bechberger.jstall.model.ThreadDumpSnapshot;
+import me.bechberger.jstall.analyzer.ResolvedData;
+import me.bechberger.jstall.provider.requirement.DataRequirements;
 
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeParseException;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -51,13 +51,17 @@ public class JvmSupportAnalyzer implements Analyzer {
     }
 
     @Override
-    public AnalyzerResult analyze(List<ThreadDumpSnapshot> dumpsWithRaw, Map<String, Object> options) {
-        if (dumpsWithRaw == null || dumpsWithRaw.isEmpty()) {
-            return AnalyzerResult.nothing();
-        }
+    public DataRequirements getDataRequirements(Map<String, Object> options) {
+        return DataRequirements.builder()
+            .addThreadDump()
+            .addSystemProps()
+            .build();
+    }
 
-        Map<String, String> props = dumpsWithRaw.get(0).systemProperties();
-        if (props == null || props.isEmpty()) {
+    @Override
+    public AnalyzerResult analyze(ResolvedData data, Map<String, Object> options) {
+        Map<String, String> props = data.systemProperties();
+        if (props.isEmpty()) {
             // If we can't determine the release date, don't spam status output.
             return AnalyzerResult.nothing();
         }

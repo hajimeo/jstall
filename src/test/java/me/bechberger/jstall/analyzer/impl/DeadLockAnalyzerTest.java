@@ -2,6 +2,7 @@ package me.bechberger.jstall.analyzer.impl;
 
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -36,7 +37,7 @@ class DeadLockAnalyzerTest {
     @Test
     void testAnalyzeWithNoDumps() {
         DeadLockAnalyzer analyzer = new DeadLockAnalyzer();
-        AnalyzerResult result = analyzer.analyze(List.of(), Map.of());
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(List.of()), Map.of());
 
         assertEquals(0, result.exitCode());
         assertTrue(result.output().contains("No thread dump"));

@@ -3,6 +3,7 @@ package me.bechberger.jstall.analyzer.impl;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.BaseAnalyzer;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.jstall.analyzer.ThreadActivityCategorizer;
 import me.bechberger.jstall.util.TablePrinter;
 import me.bechberger.jthreaddump.model.ThreadDump;
@@ -32,7 +33,8 @@ public class ThreadsAnalyzer extends BaseAnalyzer {
     }
 
     @Override
-    public AnalyzerResult analyzeThreadDumps(List<ThreadDump> dumps, Map<String, Object> options) {
+    public AnalyzerResult analyze(ResolvedData data, Map<String, Object> options) {
+        List<ThreadDump> dumps = data.dumps().stream().map(dump -> dump.parsed()).toList();
         boolean noNative = getNoNativeOption(options);
 
         // Track thread activity across dumps using base class

@@ -3,7 +3,7 @@ package me.bechberger.jstall.cli;
 import me.bechberger.jstall.analyzer.Analyzer;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
-import me.bechberger.jthreaddump.model.ThreadDump;
+import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.femtocli.RunResult;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static me.bechberger.jstall.cli.Util.run;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -36,8 +37,7 @@ class BaseAnalyzerCommandMultiExecutionTest {
             }
 
             @Override
-            public AnalyzerResult analyzeThreadDumps(List<ThreadDump> dumps,
-                                                     Map<String, Object> options) {
+            public AnalyzerResult analyze(ResolvedData data, Map<String, Object> options) {
                 return AnalyzerResult.ok("Analysis result for " + name);
             }
         }

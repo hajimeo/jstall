@@ -3,8 +3,10 @@ package me.bechberger.jstall.analyzer.impl;
 import me.bechberger.jstall.analyzer.Analyzer;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.jstall.model.SystemEnvironment;
 import me.bechberger.jstall.model.ThreadDumpSnapshot;
+import me.bechberger.jstall.provider.requirement.DataRequirements;
 
 import java.time.Duration;
 import java.util.List;
@@ -42,6 +44,37 @@ public class SystemProcessAnalyzer implements Analyzer {
         return DumpRequirement.MANY;
     }
 
+    @Override
+    public DataRequirements getDataRequirements(Map<String, Object> options) {
+        int count = getIntOption(options, "dumps", defaultDumpCount());
+        long intervalMs = getLongOption(options, "interval", defaultIntervalMs());
+        return DataRequirements.builder()
+            .withDefaults(count, intervalMs)
+            .addThreadDumps()
+            .addSystemEnv()
+            .build();
+    }
+
+    private int getIntOption(Map<String, Object> options, String key, int defaultValue) {
+        Object value = options.get(key);
+        if (value instanceof Integer i) {
+            return i;
+        } else if (value instanceof Number n) {
+            return n.intValue();
+        }
+        return defaultValue;
+    }
+
+    private long getLongOption(Map<String, Object> options, String key, long defaultValue) {
+        Object value = options.get(key);
+        if (value instanceof Long l) {
+            return l;
+        } else if (value instanceof Number n) {
+            return n.longValue();
+        }
+        return defaultValue;
+    }
+
     private record ProcessCpuUsage(long pid, String command, double cpuUsageSeconds) {}
 
     /** ... sorts them by CPU usage descendingly */
@@ -70,7 +103,8 @@ public class SystemProcessAnalyzer implements Analyzer {
     }
 
     @Override
-    public AnalyzerResult analyze(List<ThreadDumpSnapshot> dumpsWithRaw, Map<String, Object> options) {
+    public AnalyzerResult analyze(ResolvedData data, Map<String, Object> options) {
+        List<ThreadDumpSnapshot> dumpsWithRaw = data.dumps();
         assertSortedByDate(dumpsWithRaw);
         // idea: take first and last dump, calculate CPU usage difference for processes
         List<ProcessCpuUsage> processUsages = processSystemProcessesIgnoreOwn(dumpsWithRaw);

@@ -1,6 +1,7 @@
 package me.bechberger.jstall.util;
 
 import me.bechberger.jstall.analyzer.AnalyzerResult;
+import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.jstall.analyzer.impl.StatusAnalyzer;
 import me.bechberger.jstall.model.ThreadDumpSnapshot;
 import me.bechberger.jstall.provider.JThreadDumpProvider;
@@ -118,7 +119,8 @@ public class SystemAnalyzer {
         List<ThreadDumpSnapshot> dumps = provider.collectFromJVM(jvm.pid(), count, intervalMs, null);
 
         // Run status analysis
-        AnalyzerResult statusResult = statusAnalyzer.analyze(dumps, options);
+    ResolvedData data = ResolvedData.fromDumps(dumps);
+    AnalyzerResult statusResult = statusAnalyzer.analyze(data, options);
         String analysis = statusResult.output();
 
         // Calculate CPU time and elapsed time

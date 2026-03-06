@@ -4,7 +4,8 @@ import me.bechberger.jstall.analyzer.Analyzer;
 import me.bechberger.jstall.analyzer.BaseAnalyzer;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
-import me.bechberger.jstall.model.ThreadDumpSnapshot;
+import me.bechberger.jstall.analyzer.ResolvedData;
+import me.bechberger.jstall.provider.requirement.DataRequirements;
 import me.bechberger.jstall.runner.AnalyzerRunner;
 
 import java.util.List;
@@ -50,10 +51,20 @@ public class StatusAnalyzer extends BaseAnalyzer {
 
     @SuppressWarnings("unchecked")
     @Override
-    public AnalyzerResult analyze(List<ThreadDumpSnapshot> dumps, Map<String, Object> options) {
+    public DataRequirements getDataRequirements(Map<String, Object> options) {
+        DataRequirements merged = DataRequirements.empty();
+        for (Analyzer analyzer : (List<Analyzer>) ANALYZERS) {
+            merged = merged.merge(analyzer.getDataRequirements(options));
+        }
+        return merged;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public AnalyzerResult analyze(ResolvedData data, Map<String, Object> options) {
         AnalyzerRunner runner = new AnalyzerRunner();
 
-        var runResult = runner.runAnalyzers((List<Analyzer>) ANALYZERS, dumps, options);
+        var runResult = runner.runAnalyzers((List<Analyzer>) ANALYZERS, data.dumps(), options);
 
         return AnalyzerResult.withExitCode(runResult.output(), runResult.exitCode());
     }

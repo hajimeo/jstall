@@ -3,6 +3,7 @@ package me.bechberger.jstall.analyzer.impl;
 import me.bechberger.jstall.analyzer.BaseAnalyzer;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.jthreaddump.model.ThreadDump;
 import me.bechberger.jthreaddump.model.ThreadInfo;
 
@@ -42,7 +43,8 @@ public class WaitingThreadsAnalyzer extends BaseAnalyzer {
     }
 
     @Override
-    public AnalyzerResult analyzeThreadDumps(List<ThreadDump> dumps, Map<String, Object> options) {
+    public AnalyzerResult analyze(ResolvedData data, Map<String, Object> options) {
+        List<ThreadDump> dumps = data.dumps().stream().map(dump -> dump.parsed()).toList();
         boolean noNative = getNoNativeOption(options);
         int stackDepth = getStackDepthOption(options);
         boolean intelligentFilter = getIntelligentFilterOption(options);

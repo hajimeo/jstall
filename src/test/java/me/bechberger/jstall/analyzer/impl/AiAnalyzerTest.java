@@ -2,6 +2,7 @@ package me.bechberger.jstall.analyzer.impl;
 
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
+import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.jstall.model.ThreadDumpSnapshot;
 import me.bechberger.jstall.util.llm.LlmProvider;
 import me.bechberger.jthreaddump.model.ThreadDump;
@@ -62,7 +63,7 @@ class AiAnalyzerTest {
         List<ThreadDumpSnapshot> dumps = createTestDumps(2);
         Map<String, Object> options = Map.of("model", "gpt-4");
 
-        AnalyzerResult result = analyzer.analyze(dumps, options);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(dumps), options);
 
         assertEquals(0, result.exitCode());
         assertEquals("gpt-4", mockProvider.getLastModel());
@@ -76,7 +77,7 @@ class AiAnalyzerTest {
         List<ThreadDumpSnapshot> dumps = createTestDumps(2);
         Map<String, Object> options = Map.of("question", "What is causing the deadlock?");
 
-        AnalyzerResult result = analyzer.analyze(dumps, options);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(dumps), options);
 
         assertEquals(0, result.exitCode());
         assertNotNull(result.output());
@@ -96,7 +97,7 @@ class AiAnalyzerTest {
         List<ThreadDumpSnapshot> dumps = createTestDumps(2);
         Map<String, Object> options = Map.of("raw", true);
 
-        AnalyzerResult result = analyzer.analyze(dumps, options);
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(dumps), options);
 
         assertEquals(0, result.exitCode());
         assertEquals(rawJson, result.output());
@@ -107,7 +108,7 @@ class AiAnalyzerTest {
         mockProvider.setAuthError();
 
         List<ThreadDumpSnapshot> dumps = createTestDumps(2);
-        AnalyzerResult result = analyzer.analyze(dumps, Map.of());
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(dumps), Map.of());
 
         assertEquals(4, result.exitCode());
         assertTrue(result.output().contains("Authentication failed"));
@@ -119,7 +120,7 @@ class AiAnalyzerTest {
         mockProvider.setApiError(500, "Internal server error");
 
         List<ThreadDumpSnapshot> dumps = createTestDumps(2);
-        AnalyzerResult result = analyzer.analyze(dumps, Map.of());
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(dumps), Map.of());
 
         assertEquals(5, result.exitCode());
         assertTrue(result.output().contains("LLM error"));
@@ -130,7 +131,7 @@ class AiAnalyzerTest {
         mockProvider.setNetworkError();
 
         List<ThreadDumpSnapshot> dumps = createTestDumps(2);
-        AnalyzerResult result = analyzer.analyze(dumps, Map.of());
+        AnalyzerResult result = analyzer.analyze(ResolvedData.fromDumps(dumps), Map.of());
 
         assertEquals(3, result.exitCode());
         assertTrue(result.output().contains("Network error"));
@@ -142,11 +143,11 @@ class AiAnalyzerTest {
         mockProvider.setSupportsStreaming(false);
 
         List<ThreadDumpSnapshot> dumps = createTestDumps(2);
-        analyzer.analyze(dumps, Map.of());
+        analyzer.analyze(ResolvedData.fromDumps(dumps), Map.of());
 
         // The analyzer should have enabled intelligent filtering
         // This is implicitly tested by the fact that it doesn't fail
-        assertEquals(0, analyzer.analyze(dumps, Map.of()).exitCode());
+        assertEquals(0, analyzer.analyze(ResolvedData.fromDumps(dumps), Map.of()).exitCode());
     }
 
     @Test
@@ -155,7 +156,7 @@ class AiAnalyzerTest {
         mockProvider.setSupportsStreaming(false);
 
         List<ThreadDumpSnapshot> dumps = createTestDumps(2);
-        analyzer.analyze(dumps, Map.of());
+        analyzer.analyze(ResolvedData.fromDumps(dumps), Map.of());
 
         List<LlmProvider.Message> messages = mockProvider.getLastMessages();
         assertNotNull(messages);
