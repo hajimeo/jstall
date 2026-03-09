@@ -599,7 +599,6 @@ SapMachine does.
 **Usage:**
 ```bash
 # Using the script (recommended for Unix-like systems)
-chmod +x jstall
 ./jstall <pid>
 
 # Using the JAR directly
