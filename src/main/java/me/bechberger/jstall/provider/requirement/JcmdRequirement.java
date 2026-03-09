@@ -33,11 +33,26 @@ public class JcmdRequirement implements DataRequirement {
     
     @Override
     public String getType() {
-        // Use friendly names for common commands
+        // Use standardized names for common commands
         return switch (command) {
             case "Thread.print" -> "thread-dumps";
             case "VM.system_properties" -> "system-properties";
-            default -> "jcmd-" + sanitizeCommandName(command);
+            case "VM.flags" -> "vm-flags";
+            case "VM.command_line" -> "vm-command-line";
+            case "GC.heap_info" -> "gc-heap-info";
+            case "GC.class_histogram" -> "gc-class-histogram";
+            case "GC.finalizer_info" -> "gc-finalizer-info";
+            case "VM.classes" -> "vm-classes";
+            case "VM.class_hierarchy" -> "vm-class-hierarchy";
+            case "VM.classloader_stats" -> "vm-classloader-stats";
+            case "VM.classloaders" -> "vm-classloaders";
+            case "VM.metaspace" -> "vm-metaspace";
+            case "VM.native_memory" -> "vm-native-memory";
+            case "VM.uptime" -> "vm-uptime";
+            case "VM.info" -> "vm-info";
+            case "Compiler.queue" -> "compiler-queue";
+            case "Compiler.codecache" -> "compiler-codecache";
+            default -> sanitizeCommandName(command);
         };
     }
     
@@ -99,6 +114,11 @@ public class JcmdRequirement implements DataRequirement {
     
     @Override
     public void persist(ZipOutputStream zipOut, String pidPath, List<CollectedData> samples) throws IOException {
+        // VM.flags, VM.command_line, and VM.uptime are metadata-only, not persisted as separate files
+        if ("VM.flags".equals(command) || "VM.command_line".equals(command) || "VM.uptime".equals(command)) {
+            return;
+        }
+        
         String subdir = getType() + "/";
         String extension = getFileExtension();
         

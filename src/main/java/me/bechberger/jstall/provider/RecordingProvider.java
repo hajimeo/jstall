@@ -224,6 +224,23 @@ public class RecordingProvider {
             fields.put("success", new JsonValue.JsonBoolean(item.successful()));
             fields.put("startedAt", new JsonValue.JsonNumber(item.startedAt()));
             fields.put("finishedAt", new JsonValue.JsonNumber(item.finishedAt()));
+            
+            // Extract VM.flags, VM.command_line, and VM.uptime from collected data (metadata-only)
+            if (item.successful()) {
+                String vmFlags = extractMetadataField(item.data(), "VM.flags");
+                String vmCommandLine = extractMetadataField(item.data(), "VM.command_line");
+                String vmUptime = extractMetadataField(item.data(), "VM.uptime");
+                if (vmFlags != null) {
+                    fields.put("vmFlags", new JsonValue.JsonString(vmFlags));
+                }
+                if (vmCommandLine != null) {
+                    fields.put("vmCommandLine", new JsonValue.JsonString(vmCommandLine));
+                }
+                if (vmUptime != null) {
+                    fields.put("vmUptime", new JsonValue.JsonString(vmUptime));
+                }
+            }
+            
             if (!item.successful() && item.errorMessage() != null) {
                 fields.put("error", new JsonValue.JsonString(item.errorMessage()));
             }
@@ -240,7 +257,18 @@ public class RecordingProvider {
         writeJsonEntry(zipOut, recordingRoot + "metadata.json", new JsonValue.JsonObject(root));
     }
 
-    private void writeReadme(ZipOutputStream zipOut,
+    private String extractMetadataField(Map<DataRequirement, List<CollectedData>> data, String command) {
+        // Find the jcmd requirement for this command and return its first sample's raw data
+        for (Map.Entry<DataRequirement, List<CollectedData>> entry : data.entrySet()) {
+            if (entry.getKey() instanceof JcmdRequirement jcmd && command.equals(jcmd.getCommand())) {
+                List<CollectedData> samples = entry.getValue();
+                if (!samples.isEmpty()) {
+                    return samples.get(0).rawData();
+                }
+            }
+        }
+        return null;
+    }    private void writeReadme(ZipOutputStream zipOut,
                              String recordingRoot,
                              List<CollectedJvmData> collected,
                              DataRequirements requirements) throws IOException {

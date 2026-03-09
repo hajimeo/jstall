@@ -55,6 +55,9 @@ public class RecordCommand implements Callable<Integer> {
     @Option(names = "--include", description = "Additional jcmd command to record (repeatable)")
     private List<String> include;
 
+    @Option(names = "--full", description = "Include expensive diagnostics (VM.classes, VM.class_hierarchy, GC.class_histogram)")
+    private boolean full;
+
     @Option(names = "--list-jcmd", description = "List common jcmd commands and exit")
     private boolean listJcmd;
 
@@ -95,7 +98,16 @@ public class RecordCommand implements Callable<Integer> {
             }
         }
 
-        DataRequirements requirements = collectRequirements(count, intervalMs);
+        DataRequirements requirements = collectRequirements(count, intervalMs, full);
+
+        // Also collect metadata-only info: VM.flags, VM.command_line, and VM.uptime
+        // (these will go to metadata.json instead of separate files)
+        DataRequirements metadataRequirements = DataRequirements.builder()
+            .addJcmdOnce("VM.flags")
+            .addJcmdOnce("VM.command_line")
+            .addJcmdOnce("VM.uptime")
+            .build();
+        requirements = requirements.merge(metadataRequirements);
 
         if (verbose) {
             System.out.println("Data requirements: " + requirements.getRequirements().size() + " requirement(s)");
@@ -114,13 +126,28 @@ public class RecordCommand implements Callable<Integer> {
         return 0;
     }
 
-    private DataRequirements collectRequirements(int count, long intervalMs) {
+    private DataRequirements collectRequirements(int count, long intervalMs, boolean full) {
         Map<String, Object> options = Map.of(
             "dumps", count,
             "interval", intervalMs
         );
 
-        DataRequirements merged = DataRequirements.empty();
+        // Start with fast VM info that's inexpensive to collect
+        DataRequirements.Builder builder = DataRequirements.builder()
+            .withDefaults(count, intervalMs)
+            .addFastVmInfo()
+            .addSystemProps();
+        
+        // Add expensive VM diagnostics if --full is specified
+        if (full) {
+            builder.addJcmdOnce("VM.classes");
+            builder.addJcmdOnce("VM.class_hierarchy");
+            builder.addJcmdOnce("GC.class_histogram");
+        }
+        
+        DataRequirements merged = builder.build();
+
+        // Merge in analyzer-specific requirements
         for (Analyzer analyzer : allRecordableAnalyzers()) {
             merged = merged.merge(analyzer.getDataRequirements(options));
         }

@@ -205,6 +205,35 @@ public class DataRequirements {
             }
             return this;
         }
+
+        /**
+         * Adds fast/inexpensive jcmd commands that are safe to collect at startup.
+         * These commands typically complete in < 300ms and provide useful diagnostic info.
+         * Commands included: VM.info, GC.heap_info, Compiler.queue, 
+         * VM.classloader_stats, VM.metaspace (VM.flags, VM.command_line, and VM.uptime go to metadata.json instead).
+         */
+        public Builder addFastVmInfo() {
+            // Single collection of these info commands at start
+            addJcmdOnce("VM.info");
+            addJcmdOnce("GC.heap_info");
+            addJcmdOnce("Compiler.queue");
+            addJcmdOnce("VM.classloader_stats");
+            addJcmdOnce("VM.metaspace");
+            // Note: VM.flags, VM.command_line, and VM.uptime are stored in metadata.json
+            // Note: VM.native_memory only collected if NMT is enabled (added conditionally)
+            return this;
+        }
+        
+        /**
+         * Conditionally adds VM.native_memory (with summary option) if native memory tracking is enabled.
+         * This is called during recording setup based on JVM flags.
+         */
+        public Builder addNativeMemoryIfEnabled(boolean trackingEnabled) {
+            if (trackingEnabled) {
+                addJcmd("VM.native_memory", new String[]{"summary"}, 1, 0);
+            }
+            return this;
+        }
         
         /**
          * Adds a jcmd command collection using default schedule.
