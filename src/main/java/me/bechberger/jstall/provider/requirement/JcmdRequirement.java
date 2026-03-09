@@ -191,4 +191,32 @@ public class JcmdRequirement implements DataRequirement {
     public String[] getArgs() {
         return args;
     }
+
+    @Override
+    public String getDirectoryDescription() {
+        return switch (command) {
+            case "Thread.print" -> "thread dump snapshots";
+            case "VM.system_properties" -> "JVM system properties";
+            default -> "jcmd " + command + " diagnostic data";
+        };
+    }
+
+    @Override
+    public List<String> getExpectedFiles(List<CollectedData> samples) {
+        if (samples == null || samples.isEmpty()) {
+            return List.of();
+        }
+        String subdir = getType() + "/";
+        String extension = getFileExtension();
+        List<String> files = new ArrayList<>();
+        if (schedule.isMultiple()) {
+            for (int i = 0; i < samples.size(); i++) {
+                CollectedData sample = samples.get(i);
+                files.add(String.format("%s%03d-%d.%s", subdir, i, sample.timestamp(), extension));
+            }
+        } else if (!samples.isEmpty()) {
+            files.add(subdir + "data." + extension);
+        }
+        return files;
+    }
 }

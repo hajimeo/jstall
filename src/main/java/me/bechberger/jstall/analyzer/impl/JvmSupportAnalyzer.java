@@ -5,11 +5,10 @@ import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
 import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.jstall.provider.requirement.DataRequirements;
+import me.bechberger.jstall.util.JvmVersionChecker;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
-import java.time.format.DateTimeParseException;
 import java.util.Map;
 import java.util.Set;
 
@@ -67,29 +66,18 @@ public class JvmSupportAnalyzer implements Analyzer {
         }
 
         String dateStr = props.get("java.version.date");
-        if (dateStr == null || dateStr.isBlank()) {
-            return AnalyzerResult.nothing();
-        }
-
-        LocalDate releaseDate;
-        try {
-            // Expected format: yyyy-MM-dd (as seen in jcmd output)
-            releaseDate = LocalDate.parse(dateStr.trim());
-        } catch (DateTimeParseException e) {
+        LocalDate releaseDate = JvmVersionChecker.parseVersionDate(dateStr);
+        if (releaseDate == null) {
             return AnalyzerResult.nothing();
         }
 
         LocalDate today = LocalDate.now(clock);
-        long ageDays = ChronoUnit.DAYS.between(releaseDate, today);
-        if (ageDays < 0) {
+        if (today.isBefore(releaseDate)) {
             // Clock skew or weird value; ignore.
             return AnalyzerResult.nothing();
         }
 
-        LocalDate fourMonthsAgo = today.minusMonths(4);
-        LocalDate oneYearAgo = today.minusYears(1);
-
-        if (!releaseDate.isBefore(fourMonthsAgo)) {
+        if (JvmVersionChecker.isCurrentRelease(dateStr, clock)) {
             return AnalyzerResult.nothing();
         }
 
@@ -97,52 +85,17 @@ public class JvmSupportAnalyzer implements Analyzer {
         String version = props.getOrDefault("java.version", "<unknown version>");
         String vmVersion = props.getOrDefault("java.vendor.version", "");
 
-        String agePretty = prettyAge(releaseDate, today);
+        String agePretty = JvmVersionChecker.prettyAge(releaseDate, today);
 
         String message = "JVM looks outdated based on java.version.date=" + releaseDate + " (" + agePretty + ")\n" +
                          "Detected: java.vendor=" + vendor + ", java.version=" + version +
                          (vmVersion.isBlank() ? "" : ", java.vendor.version=" + vmVersion) + "\n" +
                          "Recommendation: update the JVM (supported JVMs are typically released within the last ~4 months).";
 
-        if (releaseDate.isBefore(oneYearAgo)) {
+        if (JvmVersionChecker.isOutdated(dateStr, clock)) {
             return AnalyzerResult.withExitCode(message, OUTDATED_EXIT_CODE);
         }
 
         return AnalyzerResult.ok(message);
-    }
-
-    /**
-     * Produce a stable, non-misleading age string like "4mo 24d" or "1y 2mo".
-     *
-     * We intentionally don't use Period.toString() because it can be confusing (and can normalize in surprising ways).
-     */
-    private static String prettyAge(LocalDate fromInclusive, LocalDate toExclusive) {
-        if (toExclusive.isBefore(fromInclusive)) {
-            return "0d old";
-        }
-        LocalDate cursor = fromInclusive;
-
-        long years = cursor.until(toExclusive, ChronoUnit.YEARS);
-        cursor = cursor.plusYears(years);
-
-        long months = cursor.until(toExclusive, ChronoUnit.MONTHS);
-        cursor = cursor.plusMonths(months);
-
-        long days = cursor.until(toExclusive, ChronoUnit.DAYS);
-
-        StringBuilder sb = new StringBuilder();
-        if (years > 0) {
-            sb.append(years).append("y");
-        }
-        if (months > 0) {
-            if (!sb.isEmpty()) sb.append(" ");
-            sb.append(months).append("mo");
-        }
-        if (days > 0 || sb.isEmpty()) {
-            if (!sb.isEmpty()) sb.append(" ");
-            sb.append(days).append("d");
-        }
-        sb.append(" old");
-        return sb.toString();
     }
 }

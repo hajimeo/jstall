@@ -2,14 +2,14 @@ package me.bechberger.jstall.provider.requirement;
 
 import me.bechberger.jstall.util.JMXDiagnosticHelper;
 import me.bechberger.jstall.util.JcmdOutputParsers;
+import me.bechberger.jstall.util.JvmVersionChecker;
 import one.profiler.AsyncProfilerLoader;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
@@ -143,12 +143,8 @@ public class AsyncProfilerWindowRequirement implements IntervalWindowRequirement
         try {
             Map<String, String> props = JcmdOutputParsers.parseVmSystemProperties(helper.getSystemProperties());
             String date = props.get("java.version.date");
-            if (date == null || date.isBlank()) {
-                return false;
-            }
-            LocalDate releaseDate = LocalDate.parse(date.trim());
-            return !releaseDate.isBefore(LocalDate.now().minusMonths(4));
-        } catch (IOException | DateTimeParseException e) {
+            return JvmVersionChecker.isCurrentRelease(date, Clock.systemDefaultZone());
+        } catch (IOException e) {
             return false;
         }
     }
@@ -265,5 +261,30 @@ public class AsyncProfilerWindowRequirement implements IntervalWindowRequirement
             }
         }
         return result;
+    }
+
+    @Override
+    public String getDirectoryDescription() {
+        return "async-profiler flamegraphs and JFR recordings (if supported)";
+    }
+
+    @Override
+    public List<String> getExpectedFiles(List<CollectedData> samples) {
+        if (samples == null || samples.isEmpty()) {
+            return List.of();
+        }
+        List<String> files = new ArrayList<>();
+        for (CollectedData sample : samples) {
+            if (sample.metadata().containsKey("skip") || sample.rawData().isBlank()) {
+                continue;
+            }
+            files.add(FLAME_SUBDIR + "flame.html");
+            files.add(FLAME_SUBDIR + "flame.meta.json");
+            if (sample.metadata().containsKey("jfrBase64") && !sample.metadata().get("jfrBase64").isBlank()) {
+                files.add(JFR_SUBDIR + "default.jfr");
+            }
+            break; // only one valid sample is persisted
+        }
+        return files;
     }
 }

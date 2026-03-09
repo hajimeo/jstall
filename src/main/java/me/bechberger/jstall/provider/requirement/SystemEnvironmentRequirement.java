@@ -120,4 +120,22 @@ public class SystemEnvironmentRequirement implements DataRequirement {
         
         return result;
     }
+
+    @Override
+    public String getDirectoryDescription() {
+        return "system process information";
+    }
+
+    @Override
+    public List<String> getExpectedFiles(List<CollectedData> samples) {
+        if (samples == null || samples.isEmpty()) {
+            return List.of();
+        }
+        List<String> files = new ArrayList<>();
+        for (int i = 0; i < samples.size(); i++) {
+            CollectedData sample = samples.get(i);
+            files.add(String.format("%s%03d-%d.json", SUBDIR, i, sample.timestamp()));
+        }
+        return files;
+    }
 }

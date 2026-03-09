@@ -68,4 +68,28 @@ public interface DataRequirement {
         }
         return getType() + " (once)";
     }
+
+    /**
+     * Returns a human-readable description of the directory this requirement writes to.
+     * Used by the README generator to describe the archive structure.
+     *
+     * @return description string, or {@code null} if this requirement should not appear in the archive structure docs
+     */
+    default String getDirectoryDescription() {
+        return null;
+    }
+
+    /**
+     * Returns the list of relative file paths (relative to the PID folder, e.g. "thread-dumps/000-123.txt")
+     * that {@link #persist} would write for the given samples.
+     *
+     * <p>This keeps file-naming logic co-located with {@code persist()} so the README
+     * generator can list actual files without duplicating naming conventions.</p>
+     *
+     * @param samples the collected samples (same list that would be passed to {@code persist})
+     * @return list of relative paths; empty list if no files would be written
+     */
+    default List<String> getExpectedFiles(List<CollectedData> samples) {
+        return List.of();
+    }
 }

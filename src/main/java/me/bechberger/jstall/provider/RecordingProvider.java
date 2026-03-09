@@ -244,60 +244,8 @@ public class RecordingProvider {
                              String recordingRoot,
                              List<CollectedJvmData> collected,
                              DataRequirements requirements) throws IOException {
-        StringBuilder content = new StringBuilder();
-        content.append("# JStall Recording Archive\n\n");
-        content.append("Created by `jstall record`.\n\n");
-        content.append("Project: https://github.com/parttimenerd/jstall\n\n");
-        
-        // Sample configuration
-        int maxCount = requirements.getRequirements().stream()
-            .mapToInt(r -> r.getSchedule().count())
-            .max()
-            .orElse(1);
-        long intervalMs = requirements.getRequirements().stream()
-            .filter(r -> r.getSchedule().intervalMs() > 0)
-            .mapToLong(r -> r.getSchedule().intervalMs())
-            .findFirst()
-            .orElse(0);
-        
-        content.append("## Recording Configuration\n\n");
-        content.append("- Sample count: ").append(maxCount).append("\n");
-        if (intervalMs > 0) {
-            content.append("- Sample interval: ").append(intervalMs).append(" ms\n");
-        }
-        content.append("- Total JVMs: ").append(collected.size()).append("\n\n");
-        
-        // JVM list
-        content.append("## Recorded JVMs\n\n");
-        for (CollectedJvmData jvm : collected) {
-            content.append("- ").append(jvm.process().pid());
-            content.append(": ").append(jvm.process().mainClass());
-            if (!jvm.successful()) {
-                content.append(" [FAILED]");
-            }
-            content.append("\n");
-            // Markdown link to the per-pid folder inside the archive (use relative path ./<pid>/)
-            content.append("  → See folder: [").append(jvm.process().pid()).append("/] (./").append(jvm.process().pid()).append("/)\n");
-        }
-        content.append("\n");
-        
-        // Archive structure
-        content.append("## Archive Structure\n\n");
-        content.append(generateArchiveStructure(requirements));
-        content.append("\n");
-        
-        // Usage instructions
-        content.append("## Usage\n\n");
-        content.append("To replay and analyze this recording, use:\n");
-        content.append("```bash\n");
-        content.append("jstall -f <recording.zip> status\n");
-        content.append("jstall -f <recording.zip> threads\n");
-        content.append("# ... or other analyzers that support the collected data types.\n");
-        content.append("```\n");
-        content.append("You can also extract the ZIP and examine individual files manually.\n");
-        content.append("Flamegraph HTML files can be opened directly in a web browser.\n");
-        
-        writeTextEntry(zipOut, recordingRoot + "README.md", content.toString());
+        String content = new ReadmeWriter(collected, requirements, jstallVersion).generate();
+        writeTextEntry(zipOut, recordingRoot + "README.md", content);
     }
 
     private void writeJvmData(ZipOutputStream zipOut,
@@ -393,62 +341,6 @@ public class RecordingProvider {
         zipOut.write(content.getBytes(StandardCharsets.UTF_8));
         zipOut.closeEntry();
     }
-    
-    /**
-     * Generates the Archive Structure section based on the data requirements.
-     */
-    private String generateArchiveStructure(DataRequirements requirements) {
-        StringBuilder structure = new StringBuilder();
-        
-        // Always present
-        structure.append("- metadata.json: recording metadata (format version, jstall version, collection time, JVM list)\n");
-        structure.append("- <pid>/manifest.json: per-JVM summary and sample counts\n");
-        
-        // Iterate through requirements to determine subdirectories
-        boolean hasProfilingWindows = false;
-        for (DataRequirement req : requirements.getRequirements()) {
-            String type = req.getType();
-            
-            // Special handling for profiling-windows (creates flamegraphs/ and jfr/ subdirectories)
-            if (type.equals("profiling-windows")) {
-                hasProfilingWindows = true;
-                continue;
-            }
-            
-            String description = getDirectoryDescription(type, req);
-            if (description != null) {
-                structure.append("- <pid>/").append(type).append("/: ").append(description).append("\n");
-            }
-        }
-        
-        // Add flamegraphs and jfr if profiling is enabled
-        if (hasProfilingWindows) {
-            structure.append("- <pid>/flamegraphs/: flamegraph HTML files (if supported)\n");
-            structure.append("- <pid>/jfr/: JFR recordings (if supported)\n");
-        }
-        
-        return structure.toString();
-    }
-    
-    /**
-     * Returns a human-readable description for a data requirement subdirectory.
-     */
-    private String getDirectoryDescription(String type, DataRequirement req) {
-        return switch (type) {
-            case "thread-dumps" -> "thread dump snapshots";
-            case "system-properties" -> "JVM system properties";
-            case "system-environment" -> "system process information";
-            default -> {
-                if (type.startsWith("jcmd-")) {
-                    if (req instanceof JcmdRequirement jcmd) {
-                        yield "jcmd " + jcmd.getCommand() + " diagnostic data";
-                    }
-                    yield "additional jcmd diagnostic data";
-                }
-                yield null; // Unknown type, skip
-            }
-        };
-    }
 
     public static JsonValue.JsonObject loadMetadata(Path recordingZip) throws IOException {
         try (java.util.zip.ZipFile zipFile = new java.util.zip.ZipFile(recordingZip.toFile())) {
@@ -478,7 +370,7 @@ public class RecordingProvider {
                                    int failureCount) {
     }
 
-    private record CollectedJvmData(JVMDiscovery.JVMProcess process,
+    record CollectedJvmData(JVMDiscovery.JVMProcess process,
                                     Map<DataRequirement, List<CollectedData>> data,
                                     long startedAt,
                                     long finishedAt,
