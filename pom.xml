@@ -137,7 +137,7 @@
                 <configuration>
                     <doclint>none</doclint>
                     <quiet>true</quiet>
-                    <release>17</release>
+                    <release>21</release>
                     <additionalJOptions>
                         <additionalJOption>--add-modules</additionalJOption>
                         <additionalJOption>jdk.jfr,java.management,jdk.attach,java.net.http</additionalJOption>
