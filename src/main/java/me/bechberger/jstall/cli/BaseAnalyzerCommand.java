@@ -11,8 +11,11 @@ import me.bechberger.jstall.model.ThreadDumpSnapshot;
 import me.bechberger.jstall.provider.JThreadDumpProvider;
 import me.bechberger.jstall.provider.ReplayProvider;
 import me.bechberger.jstall.provider.ThreadDumpProvider;
+import me.bechberger.jstall.provider.DataCollector;
 import me.bechberger.jstall.provider.requirement.CollectedData;
+import me.bechberger.jstall.provider.requirement.DataRequirement;
 import me.bechberger.jstall.util.JVMDiscovery;
+import me.bechberger.jstall.util.JMXDiagnosticHelper;
 import me.bechberger.jstall.util.TargetResolver;
 import me.bechberger.femtocli.annotations.Parameters;
 
@@ -168,7 +171,7 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
         }
 
         Map<String, Object> options = buildOptions(dumpCount, intervalMs);
-        ResolvedData data = buildResolvedData(provider, null, threadDumps);
+        ResolvedData data = buildResolvedData(provider, null, threadDumps, analyzer, options);
         AnalyzerResult result = analyzer.analyze(data, options);
         System.out.println(result.output());
         return result.exitCode();
@@ -202,7 +205,7 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
         Map<String, Object> options = buildOptions(dumpCount, intervalMs);
 
         // Run analyzer
-        ResolvedData data = buildResolvedData(provider, target, threadDumps);
+        ResolvedData data = buildResolvedData(provider, target, threadDumps, analyzer, options);
         AnalyzerResult result = analyzer.analyze(data, options);
         System.out.println(result.output());
         return result.exitCode();
@@ -234,7 +237,7 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
                         throw new IllegalStateException("Unknown target type: " + target);
                     }
 
-                    ResolvedData data = buildResolvedData(provider, target, threadDumps);
+                    ResolvedData data = buildResolvedData(provider, target, threadDumps, analyzer, options);
                     AnalyzerResult result = analyzer.analyze(data, options);
                     return new TargetResult(target, result, null);
 
@@ -338,7 +341,9 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
 
     private ResolvedData buildResolvedData(ThreadDumpProvider provider,
                                            TargetResolver.ResolvedTarget target,
-                                           List<ThreadDumpSnapshot> threadDumps) {
+                                           List<ThreadDumpSnapshot> threadDumps,
+                                           Analyzer analyzer,
+                                           Map<String, Object> options) {
         if (provider instanceof ReplayProvider replayProvider && target instanceof TargetResolver.ResolvedTarget.Pid pid) {
             try {
                 Map<String, List<CollectedData>> collectedDataByType = replayProvider.loadCollectedDataByTypeForPid(pid.pid());
@@ -347,7 +352,43 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
                 // Fall back to thread-dump-only resolved data if replay extras cannot be loaded.
             }
         }
+
+        if (!(provider instanceof ReplayProvider) && target instanceof TargetResolver.ResolvedTarget.Pid pid) {
+            try {
+                Map<String, List<CollectedData>> collectedDataByType = collectLiveDataByType(pid.pid(), analyzer, options);
+                return ResolvedData.fromDumpsAndCollectedData(threadDumps, collectedDataByType);
+            } catch (Exception ignored) {
+                // Fall back to thread-dump-only resolved data if live requirement collection fails.
+            }
+        }
+
         return ResolvedData.fromDumps(threadDumps);
+    }
+
+    private Map<String, List<CollectedData>> collectLiveDataByType(long pid,
+                                                                    Analyzer analyzer,
+                                                                    Map<String, Object> options) throws IOException {
+        Map<String, List<CollectedData>> byType = new HashMap<>();
+        var requirements = analyzer.getDataRequirements(options);
+
+        try (JMXDiagnosticHelper helper = new JMXDiagnosticHelper(pid)) {
+            DataCollector collector = new DataCollector(helper, requirements);
+            Map<DataRequirement, List<CollectedData>> collected = collector.collectAll();
+
+            for (Map.Entry<DataRequirement, List<CollectedData>> entry : collected.entrySet()) {
+                String type = entry.getKey().getType();
+                if (type == null || type.isBlank()) {
+                    continue;
+                }
+                byType.computeIfAbsent(type, __ -> new ArrayList<>()).addAll(entry.getValue());
+            }
+        }
+
+        byType.replaceAll((__, samples) -> samples.stream()
+            .sorted(java.util.Comparator.comparingLong(CollectedData::timestamp))
+            .toList());
+
+        return byType;
     }
 
     private TargetResolver.ResolutionResult resolveTargetsFromReplay(List<String> requestedTargets) {

@@ -4,6 +4,7 @@ import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
 import me.bechberger.jstall.analyzer.ResolvedData;
 import me.bechberger.jstall.model.ThreadDumpSnapshot;
+import me.bechberger.jstall.provider.requirement.CollectedData;
 import me.bechberger.jthreaddump.model.ThreadDump;
 import me.bechberger.jthreaddump.parser.ThreadDumpParser;
 import org.junit.jupiter.api.Test;
@@ -137,5 +138,22 @@ class StatusAnalyzerTest {
 
         // With minimal dumps, exit code should be 0
         assertEquals(0, result.exitCode());
+    }
+
+    @Test
+    void testShowsVmUptimeWhenAvailable() throws IOException {
+        StatusAnalyzer analyzer = new StatusAnalyzer();
+        List<ThreadDumpSnapshot> dumps = createTestDumps(2);
+
+        ResolvedData data = new ResolvedData(
+            dumps,
+            Map.of(),
+            null,
+            Map.of("vm-uptime", List.of(new CollectedData(System.currentTimeMillis(), "3183:\n123.456 s", Map.of())))
+        );
+
+        AnalyzerResult result = analyzer.analyze(data, Map.of("keep", false));
+
+        assertTrue(result.output().contains("VM uptime: 123.456 s"));
     }
 }

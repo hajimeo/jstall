@@ -242,4 +242,35 @@ public class ReadmeWriterTest {
         assertEquals("<unknown>", ReadmeWriter.shortMainClass(null));
         assertEquals("SimpleApp", ReadmeWriter.shortMainClass("SimpleApp"));
     }
+
+        @Test
+        void showsVmUptimeWhenRecorded() {
+                JcmdRequirement threadDumpReq = new JcmdRequirement("Thread.print", null, CollectionSchedule.intervals(1, 5000));
+                JcmdRequirement sysPropReq = new JcmdRequirement("VM.system_properties", null, CollectionSchedule.once());
+                JcmdRequirement uptimeReq = new JcmdRequirement("VM.uptime", null, CollectionSchedule.once());
+
+                DataRequirements reqs = DataRequirements.builder()
+                        .addThreadDumps(1, 5000)
+                        .addSystemProps()
+                        .addJcmdOnce("VM.uptime")
+                        .build();
+
+                Map<me.bechberger.jstall.provider.requirement.DataRequirement, List<CollectedData>> data =
+                        new LinkedHashMap<>();
+                data.put(threadDumpReq, List.of(new CollectedData(1000001L, "dump", Map.of())));
+                data.put(sysPropReq, List.of(new CollectedData(1000001L, SYSTEM_PROPS_CURRENT, Map.of())));
+                data.put(uptimeReq, List.of(new CollectedData(1000001L, "3183:\n123.456 s", Map.of())));
+
+                var jvm = RecordingProvider.CollectedJvmData.success(
+                        new JVMDiscovery.JVMProcess(3183, "com.example.Main"),
+                        data,
+                        1709991000000L,
+                        1709991005000L
+                );
+
+                var writer = new ReadmeWriter(List.of(jvm), reqs, "0.1.0", FIXED_CLOCK);
+                String readme = writer.generate();
+
+                assertTrue(readme.contains("| VM uptime | 123.456 s |"), "Should show VM uptime row");
+        }
 }

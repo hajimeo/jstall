@@ -27,6 +27,18 @@ public class AnalyzerRunner {
      * @return Aggregated result
      */
     public RunResult runAnalyzers(List<Analyzer> analyzers, List<ThreadDumpSnapshot> dumps, Map<String, Object> options) {
+        return runAnalyzers(analyzers, ResolvedData.fromDumps(dumps), options);
+    }
+
+    /**
+     * Runs multiple analyzers in sequence while preserving all resolved requirement data.
+     *
+     * @param analyzers Analyzers to run (in order)
+     * @param data Fully resolved data (dumps + collected requirement data)
+     * @param options All options provided by user
+     * @return Aggregated result
+     */
+    public RunResult runAnalyzers(List<Analyzer> analyzers, ResolvedData data, Map<String, Object> options) {
         StringBuilder output = new StringBuilder();
         int maxExitCode = 0;
 
@@ -36,11 +48,16 @@ public class AnalyzerRunner {
             Map<String, Object> analyzerOptions = filterOptions(analyzer, options);
 
             // Filter dumps based on requirement
-            List<ThreadDumpSnapshot> analyzerDumps = filterDumps(analyzer, dumps);
+            List<ThreadDumpSnapshot> analyzerDumps = filterDumps(analyzer, data.dumps());
 
             // Run analyzer
-            ResolvedData data = ResolvedData.fromDumps(analyzerDumps);
-            AnalyzerResult result = analyzer.analyze(data, analyzerOptions);
+            ResolvedData analyzerData = new ResolvedData(
+                analyzerDumps,
+                data.systemProperties(),
+                data.environment(),
+                data.collectedDataByType()
+            );
+            AnalyzerResult result = analyzer.analyze(analyzerData, analyzerOptions);
 
             // Append output (with section header) only if analyzer has something to display
             if (result.shouldDisplay() && !result.output().isBlank()) {

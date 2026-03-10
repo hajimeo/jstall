@@ -192,7 +192,52 @@ public class ReplayProvider implements ThreadDumpProvider {
                 .collect(Collectors.toList());
             byType.put(entry.getKey(), sorted);
         }
+
+        JsonValue.JsonObject jvmMetadata = findJvmMetadata(pid);
+        if (jvmMetadata != null) {
+            String vmUptime = getOptionalString(jvmMetadata, "vmUptime");
+            if (vmUptime != null && !vmUptime.isBlank()) {
+                long ts = getOptionalLong(jvmMetadata, "finishedAt", getOptionalLong(jvmMetadata, "finished_at", 0L));
+                byType.computeIfAbsent("vm-uptime", __ -> new ArrayList<>())
+                    .add(new CollectedData(ts, vmUptime, Map.of("source", "metadata.json")));
+            }
+        }
+
         return byType;
+    }
+
+    private JsonValue.JsonObject findJvmMetadata(long pid) {
+        JsonValue jvmsValue = metadata.fields().get("jvms");
+        if (jvmsValue == null || !jvmsValue.isArray()) {
+            return null;
+        }
+        for (JsonValue item : jvmsValue.asArray().elements()) {
+            if (!item.isObject()) {
+                continue;
+            }
+            JsonValue.JsonObject jvm = item.asObject();
+            JsonValue pidValue = jvm.get("pid");
+            if (pidValue != null && pidValue.isNumber() && pidValue.asLong() == pid) {
+                return jvm;
+            }
+        }
+        return null;
+    }
+
+    private String getOptionalString(JsonValue.JsonObject obj, String key) {
+        JsonValue value = obj.get(key);
+        if (value == null || !value.isString()) {
+            return null;
+        }
+        return value.asString();
+    }
+
+    private long getOptionalLong(JsonValue.JsonObject obj, String key, long defaultValue) {
+        JsonValue value = obj.get(key);
+        if (value == null || !value.isNumber()) {
+            return defaultValue;
+        }
+        return value.asLong();
     }
 
     private String detectRootPath(Path zipPath) throws IOException {

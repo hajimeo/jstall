@@ -5,7 +5,6 @@ import me.bechberger.jstall.provider.requirement.DataRequirement;
 import me.bechberger.jstall.provider.requirement.DataRequirements;
 import me.bechberger.jstall.provider.requirement.JcmdRequirement;
 import me.bechberger.jstall.util.JcmdOutputParsers;
-import me.bechberger.jstall.util.JVMDiscovery;
 import me.bechberger.jstall.util.JvmVersionChecker;
 
 import java.time.Clock;
@@ -14,7 +13,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -219,6 +217,9 @@ public class ReadmeWriter {
             }
             sb.append("| OS | ").append(os).append(" |\n");
         }
+        if (info.vmUptime != null && !info.vmUptime.isBlank()) {
+            sb.append("| VM uptime | ").append(escapeMarkdownTable(info.vmUptime)).append(" |\n");
+        }
         sb.append("| Status | ").append(jvm.successful() ? "✅ Success" : "❌ Failed").append(" |\n");
         sb.append("| Recorded | ")
                 .append(formatTimestamp(jvm.startedAt()))
@@ -289,15 +290,28 @@ public class ReadmeWriter {
             String versionDate,
             String runtimeName,
             String osName,
-            String osArch
+            String osArch,
+            String vmUptime
     ) {
-        static final JvmInfo EMPTY = new JvmInfo(null, null, null, null, null, null, null);
+        static final JvmInfo EMPTY = new JvmInfo(null, null, null, null, null, null, null, null);
     }
 
     static JvmInfo extractJvmInfo(RecordingProvider.CollectedJvmData jvm,
                                   DataRequirements requirements) {
         if (!jvm.successful()) {
             return JvmInfo.EMPTY;
+        }
+
+        String vmUptime = null;
+        for (Map.Entry<DataRequirement, List<CollectedData>> entry : jvm.data().entrySet()) {
+            DataRequirement req = entry.getKey();
+            if (req instanceof JcmdRequirement jcmd && "VM.uptime".equals(jcmd.getCommand())) {
+                List<CollectedData> samples = entry.getValue();
+                if (!samples.isEmpty()) {
+                    vmUptime = normalizeVmUptime(samples.get(0).rawData());
+                }
+                break;
+            }
         }
 
         // Search the collected data for system-properties (a JcmdRequirement with command VM.system_properties).
@@ -316,12 +330,33 @@ public class ReadmeWriter {
                             props.get("java.version.date"),
                             props.get("java.runtime.name"),
                             props.get("os.name"),
-                            props.get("os.arch")
+                            props.get("os.arch"),
+                            vmUptime
                     );
                 }
             }
         }
         return JvmInfo.EMPTY;
+    }
+
+    private static String normalizeVmUptime(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        List<String> lines = raw.lines()
+            .map(String::trim)
+            .filter(line -> !line.isBlank())
+            .toList();
+        if (lines.isEmpty()) {
+            return null;
+        }
+        for (int i = lines.size() - 1; i >= 0; i--) {
+            String line = lines.get(i);
+            if (!line.matches("\\d+:")) {
+                return line;
+            }
+        }
+        return lines.get(lines.size() - 1);
     }
 
     // ---- Helpers -------------------------------------------------------------------------------

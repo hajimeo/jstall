@@ -5,6 +5,7 @@ import me.bechberger.jstall.analyzer.BaseAnalyzer;
 import me.bechberger.jstall.analyzer.AnalyzerResult;
 import me.bechberger.jstall.analyzer.DumpRequirement;
 import me.bechberger.jstall.analyzer.ResolvedData;
+import me.bechberger.jstall.provider.requirement.CollectedData;
 import me.bechberger.jstall.provider.requirement.DataRequirements;
 import me.bechberger.jstall.runner.AnalyzerRunner;
 
@@ -21,12 +22,15 @@ public class StatusAnalyzer extends BaseAnalyzer {
 
 
     private final List<? extends Analyzer> ANALYZERS = List.of(
+        new VmVitalsAnalyzer(),
+        new GcHeapInfoAnalyzer(),
         new DeadLockAnalyzer(),
         new MostWorkAnalyzer(),
         new ThreadsAnalyzer(),
         new DependencyGraphAnalyzer(),
         new SystemProcessAnalyzer(),
-        new JvmSupportAnalyzer()
+        new JvmSupportAnalyzer(),
+        new ClassHistogramDiffAnalyzer()
     );
 
     @Override
@@ -56,7 +60,7 @@ public class StatusAnalyzer extends BaseAnalyzer {
         for (Analyzer analyzer : (List<Analyzer>) ANALYZERS) {
             merged = merged.merge(analyzer.getDataRequirements(options));
         }
-        return merged;
+        return merged.merge(DataRequirements.builder().addJcmdOnce("VM.uptime").build());
     }
 
     @SuppressWarnings("unchecked")
@@ -64,8 +68,45 @@ public class StatusAnalyzer extends BaseAnalyzer {
     public AnalyzerResult analyze(ResolvedData data, Map<String, Object> options) {
         AnalyzerRunner runner = new AnalyzerRunner();
 
-        var runResult = runner.runAnalyzers((List<Analyzer>) ANALYZERS, data.dumps(), options);
+        var runResult = runner.runAnalyzers((List<Analyzer>) ANALYZERS, data, options);
 
-        return AnalyzerResult.withExitCode(runResult.output(), runResult.exitCode());
+        StringBuilder output = new StringBuilder();
+        String uptime = resolveVmUptime(data);
+        if (uptime != null) {
+            output.append("VM uptime: ").append(uptime).append("\n");
+        }
+        if (!runResult.output().isBlank()) {
+            if (!output.isEmpty()) {
+                output.append("\n");
+            }
+            output.append(runResult.output());
+        }
+
+        return AnalyzerResult.withExitCode(output.toString().trim(), runResult.exitCode());
+    }
+
+    private String resolveVmUptime(ResolvedData data) {
+        List<CollectedData> samples = data.collectedData("vm-uptime");
+        if (samples.isEmpty()) {
+            return null;
+        }
+        String raw = samples.get(samples.size() - 1).rawData();
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        List<String> lines = raw.lines()
+            .map(String::trim)
+            .filter(line -> !line.isBlank())
+            .toList();
+        if (lines.isEmpty()) {
+            return null;
+        }
+        for (int i = lines.size() - 1; i >= 0; i--) {
+            String line = lines.get(i);
+            if (!line.matches("\\d+:")) {
+                return line;
+            }
+        }
+        return lines.get(lines.size() - 1);
     }
 }

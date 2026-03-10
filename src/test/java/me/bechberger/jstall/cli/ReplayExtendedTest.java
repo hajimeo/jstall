@@ -296,6 +296,21 @@ class ReplayExtendedTest {
         assertTrue(result.out().contains("list"));
     }
 
+    @Test
+    void testVmVitalsHelp() {
+        RunResult result = Util.run("vm-vitals", "--help");
+        assertEquals(0, result.exitCode());
+        assertTrue(result.out().contains("vm-vitals"));
+        assertTrue(result.out().contains("--top"));
+    }
+
+    @Test
+    void testGcHeapInfoHelp() {
+        RunResult result = Util.run("gc-heap-info", "--help");
+        assertEquals(0, result.exitCode());
+        assertTrue(result.out().contains("gc-heap-info"));
+    }
+
     // ================== no-args behaviour ==================
 
     @Test
