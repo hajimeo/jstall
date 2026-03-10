@@ -29,6 +29,7 @@ import java.nio.file.Path;
         DependencyGraphCommand.class,
         VmVitalsCommand.class,
         GcHeapInfoCommand.class,
+        CompilerQueueCommand.class,
         AiCommand.class,
         ListCommand.class,
         SystemProcessCommand.class,

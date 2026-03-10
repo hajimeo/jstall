@@ -31,6 +31,9 @@ public class HelpTest {
                   threads           List all threads sorted by CPU time
                   waiting-threads   Identify threads waiting without progress (potentially starving)
                   dependency-graph  Show thread dependencies (which threads wait on locks held by others)
+                  vm-vitals         Show VM.vitals (if available)
+                  gc-heap-info      Show GC.heap_info last absolute values and change
+                  compiler-queue    Analyze compiler queue state showing active compilations and queued tasks
                   ai                AI-powered thread dump analysis using LLM
                   list              List running JVM processes (excluding this tool)
                   processes         Detect other processes running on the system that consume high CPU time
@@ -57,7 +60,7 @@ public class HelpTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"list", "deadlock", "most-work", "flame", "threads", "waiting-threads", "dependency-graph", "jvm-support", "ai", "ai full"})
+    @ValueSource(strings = {"list", "deadlock", "most-work", "flame", "threads", "waiting-threads", "dependency-graph", "compiler-queue", "jvm-support", "ai", "ai full"})
     public void smokeTestHelpTest(String cmd) {
         var args = cmd.split(" ");
         final var argsWithHelp = Arrays.copyOf(args, args.length + 1);

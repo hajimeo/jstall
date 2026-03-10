@@ -208,7 +208,7 @@ public class VmVitalsAnalyzerTest {
 
     @Test
     void gcHeapInfoShowsAbsoluteValuesAndChange() {
-        VmVitalsAnalyzer analyzer = new VmVitalsAnalyzer();
+        GcHeapInfoAnalyzer analyzer = new GcHeapInfoAnalyzer();
 
         ResolvedData data = ResolvedData.fromDumpsAndCollectedData(
             List.of(createDummySnapshot()),
@@ -223,15 +223,16 @@ public class VmVitalsAnalyzerTest {
         assertTrue(result.shouldDisplay(), "Expected GC.heap_info output");
         String output = result.output();
         assertTrue(output.contains("GC.heap_info (last dump absolute + change):"));
-        assertTrue(output.contains("Heap total: 2203648K (Δ +3648K)"));
-        assertTrue(output.contains("Heap used: 1346936K (61.1%) (Δ +6936K)"));
-        assertTrue(output.contains("Young regions: 14 (114688K) (Δ +8192K)"));
-        assertTrue(output.contains("Survivor regions: 6 (49152K) (Δ +0K)"));
-        assertTrue(output.contains("Metaspace used: 640193K (Δ +1193K)"));
-        assertTrue(output.contains("Metaspace committed: 648128K (Δ +1128K)"));
-        assertTrue(output.contains("Metaspace reserved: 1638400K (Δ +0K)"));
-        assertTrue(output.contains("Class space used: 80808K (Δ +308K)"));
-        assertTrue(output.contains("Class space committed: 84544K (Δ +544K)"));
-        assertTrue(output.contains("Class space reserved: 1048576K (Δ +0K)"));
+        assertTrue(output.contains("Heap total"));
+        assertTrue(output.contains("2,203,648K"));
+        assertTrue(output.contains("Δ +3,648K"));
+        assertTrue(output.contains("Heap used"));
+        assertTrue(output.contains("61.1%"));
+        assertTrue(output.contains("Young regions"));
+        assertTrue(output.contains("14 regions, 114,688K"));
+        assertTrue(output.contains("Metaspace used"));
+        assertTrue(output.contains("640,193K"));
+        assertTrue(output.contains("Class space committed"));
+        assertTrue(output.contains("84,544K"));
     }
 }

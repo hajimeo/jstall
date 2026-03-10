@@ -1,6 +1,7 @@
 package me.bechberger.jstall.util;
 
 import com.sun.tools.attach.VirtualMachine;
+import me.bechberger.jstall.provider.requirement.JcmdRequirement;
 
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
@@ -190,8 +191,9 @@ public class JMXDiagnosticHelper implements AutoCloseable {
      * @return The command output as a String
      * @throws IOException if attachment, execution, or cleanup fails
      */
-    public static String executeCommand(long pid, String mbeanCommand, String jcmdCommand, String... args) throws IOException {
+    public static String executeCommand(long pid, String jcmdCommand, String... args) throws IOException {
         try (JMXDiagnosticHelper helper = new JMXDiagnosticHelper(pid)) {
+            String mbeanCommand = JcmdRequirement.resolveMBeanCommand(jcmdCommand);
             return helper.executeCommand(mbeanCommand, jcmdCommand, args);
         }
     }

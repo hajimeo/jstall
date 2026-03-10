@@ -56,7 +56,6 @@ public class TestAppLauncher {
                     synchronized (output) {
                         output.add(line);
                     }
-                    System.out.println("[TestApp " + pid + "] " + line);
                 }
             } catch (IOException e) {
                 // Process terminated

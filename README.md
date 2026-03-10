@@ -88,6 +88,7 @@ Commands:
   waiting-threads   Identify threads waiting without progress (potentially
                       starving)
   dependency-graph  Show thread dependencies (lock wait relationships)
+  compiler-queue    Analyze compiler queue state showing active compilations and queued tasks
   ai                AI-powered analysis using LLM
   ai full           AI-powered analysis of all JVMs on the system
   list              List running JVM processes (excluding this tool)
@@ -356,6 +357,65 @@ Dependency Chains Detected:
 ---------------------------
 Chain: [Database] jdbc-connection-pool → [I/O Write] file-writer → [Network] netty-worker-1
 ```
+
+---
+
+### `compiler-queue`
+
+Analyzes JIT compiler queue state over time using `jcmd Compiler.queue`. Shows active compilations and queued compilation tasks across multiple samples.
+
+**Usage:**
+```bash
+jstall compiler-queue <pid>
+jstall compiler-queue <filter>
+```
+
+**Features:**
+- Shows full time-series trend across collected samples
+- Displays active compilations (currently running on compiler threads)
+- Shows queued tasks per compiler queue (C1, C2, etc.)
+- Provides min/max/latest statistics for queue depths
+- Per-sample breakdown with timestamp and queue details
+- Detailed view of latest snapshot with task information
+
+**Example Output:**
+```
+Compiler queue trend (3 samples):
+
+Summary:
+  Active compilations: 1 (range: 0-2)
+  Queued tasks: 5 (range: 3-7)
+
+Per-sample breakdown:
+Time      Active  Queued  Queues Detail
+--------  ------  ------  -------------
+14:23:10       2       7  C1:4, C2:3
+14:23:12       1       5  C1:2, C2:3
+14:23:14       1       3  C1:1, C2:2
+
+Latest snapshot details:
+Active compilations:
+  [123] T2 OSR java.lang.String.indexOf @ 10 (42 bytes)
+
+C1 compile queue: 1 task(s)
+  [124] T1 com.example.Foo.bar (128 bytes)
+
+C2 compile queue: 2 task(s)
+  [125] T2 BLOCK java.util.HashMap.get (256 bytes)
+  [126] T2 com.example.Service.process (512 bytes)
+```
+
+**Options:**
+- `--samples=<n>` — Number of samples to collect (default: 3)
+- `--interval=<ms>` — Interval between samples in milliseconds (default: 2000)
+
+**Notes:**
+- Requires JVM support for `jcmd Compiler.queue` (HotSpot/OpenJDK/SapMachine)
+- Informational output only (no warning thresholds)
+- Included in `status` command output
+- Parses compiler attributes: OSR, blocking, synchronized, tier information
+
+**Exit codes:** `0` = success (informational only)
 
 ---
 

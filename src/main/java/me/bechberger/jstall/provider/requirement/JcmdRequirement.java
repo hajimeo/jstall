@@ -71,7 +71,7 @@ public class JcmdRequirement implements DataRequirement {
         return new CollectedData(timestamp, result, java.util.Map.of());
     }
 
-    static String resolveMBeanCommand(String command) {
+    public static String resolveMBeanCommand(String command) {
         if (command == null || command.isEmpty()) return command;
         return transformJcmdToMBeanName(command);
     }
@@ -85,7 +85,7 @@ public class JcmdRequirement implements DataRequirement {
      *  "VM.system_properties" -> "vmSystemProperties"
      *  "GC.heap_dump" -> "gcHeapDump"
      */
-    static String transformJcmdToMBeanName(String cmd) {
+    public static String transformJcmdToMBeanName(String cmd) {
         StringBuilder out = new StringBuilder();
         boolean inFirstSegment = true;
         boolean capitalizeNext = false;
