@@ -19,6 +19,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
+/** Async Profiler and JFR recording requirement */
 public class AsyncProfilerWindowRequirement implements IntervalWindowRequirement {
 
     private static final String TYPE = "profiling-windows";

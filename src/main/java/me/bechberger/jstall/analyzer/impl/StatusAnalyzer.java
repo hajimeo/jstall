@@ -24,6 +24,8 @@ public class StatusAnalyzer extends BaseAnalyzer {
     private final List<? extends Analyzer> ANALYZERS = List.of(
         new VmVitalsAnalyzer(),
         new GcHeapInfoAnalyzer(),
+        new VmClassloaderStatsAnalyzer(),
+        new VmMetaspaceAnalyzer(),
         new CompilerQueueAnalyzer(),
         new DeadLockAnalyzer(),
         new MostWorkAnalyzer(),

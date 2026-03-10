@@ -23,21 +23,23 @@ public class HelpTest {
                   -h, --help                 Show this help message and exit.
                   -V, --version              Print version information and exit.
                 Commands:
-                  record            Record all data into a zip for later analysis
-                  status            Run multiple analyzers over thread dumps (default command)
-                  deadlock          Detect JVM-reported thread deadlocks
-                  most-work         Identify threads doing the most work across dumps
-                  flame             Generate a flamegraph of the application using async-profiler
-                  threads           List all threads sorted by CPU time
-                  waiting-threads   Identify threads waiting without progress (potentially starving)
-                  dependency-graph  Show thread dependencies (which threads wait on locks held by others)
-                  vm-vitals         Show VM.vitals (if available)
-                  gc-heap-info      Show GC.heap_info last absolute values and change
-                  compiler-queue    Analyze compiler queue state showing active compilations and queued tasks
-                  ai                AI-powered thread dump analysis using LLM
-                  list              List running JVM processes (excluding this tool)
-                  processes         Detect other processes running on the system that consume high CPU time
-                  jvm-support       Check whether the target JVM is likely still supported (based on java.version.date)
+                  record                Record all data into a zip for later analysis
+                  status                Run multiple analyzers over thread dumps (default command)
+                  deadlock              Detect JVM-reported thread deadlocks
+                  most-work             Identify threads doing the most work across dumps
+                  flame                 Generate a flamegraph of the application using async-profiler
+                  threads               List all threads sorted by CPU time
+                  waiting-threads       Identify threads waiting without progress (potentially starving)
+                  dependency-graph      Show thread dependencies (which threads wait on locks held by others)
+                  vm-vitals             Show VM.vitals (if available)
+                  gc-heap-info          Show GC.heap_info last absolute values and change
+                  vm-classloader-stats  Show VM.classloader_stats grouped by classloader type
+                  vm-metaspace          Show VM.metaspace summary and trend
+                  compiler-queue        Analyze compiler queue state showing active compilations and queued tasks
+                  ai                    AI-powered thread dump analysis using LLM
+                  list                  List running JVM processes (excluding this tool)
+                  processes             Detect other processes running on the system that consume high CPU time
+                  jvm-support           Check whether the target JVM is likely still supported (based on java.version.date)
                 """, run("--help").out());
     }
 
@@ -60,7 +62,7 @@ public class HelpTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"list", "deadlock", "most-work", "flame", "threads", "waiting-threads", "dependency-graph", "compiler-queue", "jvm-support", "ai", "ai full"})
+    @ValueSource(strings = {"list", "deadlock", "most-work", "flame", "threads", "waiting-threads", "dependency-graph", "compiler-queue", "vm-classloader-stats", "vm-metaspace", "jvm-support", "ai", "ai full"})
     public void smokeTestHelpTest(String cmd) {
         var args = cmd.split(" ");
         final var argsWithHelp = Arrays.copyOf(args, args.length + 1);
