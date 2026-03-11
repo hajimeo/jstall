@@ -54,6 +54,9 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
     @Option(names = "--intelligent-filter", description = "Use intelligent stack trace filtering (collapses internal frames, focuses on application code)")
     protected Boolean intelligentFilter;
 
+    @Option(names = "--full", description = "Run all analyses including expensive ones (only for status command)")
+    protected boolean full = false;
+
     Spec spec;
 
     /**
@@ -357,8 +360,9 @@ public abstract class BaseAnalyzerCommand implements Callable<Integer> {
             try {
                 Map<String, List<CollectedData>> collectedDataByType = collectLiveDataByType(pid.pid(), analyzer, options);
                 return ResolvedData.fromDumpsAndCollectedData(threadDumps, collectedDataByType);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
                 // Fall back to thread-dump-only resolved data if live requirement collection fails.
+                System.err.println("[jstall] Warning: live jcmd data collection failed, jcmd-based analyses will be skipped: " + e.getMessage());
             }
         }
 

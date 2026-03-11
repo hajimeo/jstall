@@ -47,10 +47,12 @@ public class HelpTest {
     public void testDeadlockHelp() {
         assertEquals("""
                 Usage: jstall deadlock [-hV] [--dumps=<dumps>] [--interval=<interval>] [--keep]
-                                       [--intelligent-filter] [<targets>...]
+                                       [--intelligent-filter] [--full] [<targets>...]
                 Detect JVM-reported thread deadlocks
                       [<targets>...]       PID, filter or dump files
                       --dumps=<dumps>      Number of dumps to collect, default is none
+                      --full               Run all analyses including expensive ones (only for
+                                           status command)
                   -h, --help               Show this help message and exit.
                       --intelligent-filter Use intelligent stack trace filtering (collapses
                                            internal frames, focuses on application code)

@@ -84,7 +84,11 @@ public class DataCollector {
                     if (verbose) {
                         System.err.println("      Failed: " + e.getMessage());
                     }
-                    throw e;
+                    samples.add(new CollectedData(
+                        System.currentTimeMillis(),
+                        "",
+                        Map.of("error", e.getMessage())
+                    ));
                 }
                 results.put(req, samples);
             }
@@ -119,7 +123,7 @@ public class DataCollector {
      * Synchronizes collection so requirements with the same interval are collected together.
      */
     private void collectWithIntervals(Map<Long, List<DataRequirement>> byInterval,
-                                     Map<DataRequirement, List<CollectedData>> results) 
+                                     Map<DataRequirement, List<CollectedData>> results)
             throws IOException {
         List<Exception> exceptions = new ArrayList<>();
 
@@ -187,12 +191,10 @@ public class DataCollector {
             }
         }
 
-        if (!exceptions.isEmpty()) {
-            Exception first = exceptions.get(0);
-            if (first instanceof IOException io) {
-                throw io;
+        if (verbose && !exceptions.isEmpty()) {
+            for (Exception e : exceptions) {
+                System.err.println("    [jcmd] collection warning: " + e.getMessage());
             }
-            throw new IOException("Data collection failed", first);
         }
     }
 }

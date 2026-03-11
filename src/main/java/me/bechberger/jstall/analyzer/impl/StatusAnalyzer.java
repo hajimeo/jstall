@@ -21,7 +21,7 @@ import java.util.Set;
 public class StatusAnalyzer extends BaseAnalyzer {
 
 
-    private final List<? extends Analyzer> ANALYZERS = List.of(
+    private final List<Analyzer> ANALYZERS = List.of(
         new VmVitalsAnalyzer(),
         new GcHeapInfoAnalyzer(),
         new VmClassloaderStatsAnalyzer(),
@@ -32,7 +32,10 @@ public class StatusAnalyzer extends BaseAnalyzer {
         new ThreadsAnalyzer(),
         new DependencyGraphAnalyzer(),
         new SystemProcessAnalyzer(),
-        new JvmSupportAnalyzer(),
+        new JvmSupportAnalyzer()
+    );
+
+    private final List<Analyzer> EXPENSIVE_ANALYZERS = List.of(
         new ClassHistogramDiffAnalyzer()
     );
 
@@ -56,22 +59,29 @@ public class StatusAnalyzer extends BaseAnalyzer {
         return DumpRequirement.MANY;
     }
 
-    @SuppressWarnings("unchecked")
+    private List<Analyzer> getAnalyzers(Map<String, Object> options) {
+        List<Analyzer> analyzers = ANALYZERS;
+        if (getBooleanOption(options, "full", false)) {
+            analyzers = new java.util.ArrayList<>(ANALYZERS);
+            analyzers.addAll(EXPENSIVE_ANALYZERS);
+        }
+        return analyzers;
+    }
+
     @Override
     public DataRequirements getDataRequirements(Map<String, Object> options) {
         DataRequirements merged = DataRequirements.empty();
-        for (Analyzer analyzer : (List<Analyzer>) ANALYZERS) {
+        for (Analyzer analyzer : getAnalyzers(options)) {
             merged = merged.merge(analyzer.getDataRequirements(options));
         }
         return merged.merge(DataRequirements.builder().addJcmdOnce("VM.uptime").build());
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public AnalyzerResult analyze(ResolvedData data, Map<String, Object> options) {
         AnalyzerRunner runner = new AnalyzerRunner();
 
-        var runResult = runner.runAnalyzers((List<Analyzer>) ANALYZERS, data, options);
+        var runResult = runner.runAnalyzers(getAnalyzers(options), data, options);
 
         StringBuilder output = new StringBuilder();
         String uptime = resolveVmUptime(data);
