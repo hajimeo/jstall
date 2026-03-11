@@ -89,12 +89,15 @@ public class VmVitalsAnalyzer implements Analyzer {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
             
-            // Find the column header (line with "comm used" pattern)
-            if (headerLine == null && line.contains("comm") && line.contains("used")) {
-                headerLine = lines[i];
-                // The next line should be the column names
-                if (i + 1 < lines.length) {
-                    columnHeaderLine = lines[i + 1];
+            // Find header rows around the "comm used" line
+            if (columnHeaderLine == null && line.contains("comm") && line.contains("used")) {
+                columnHeaderLine = lines[i];
+                // The previous line typically contains the "--heap---" style grouped header.
+                if (i > 0) {
+                    String previous = lines[i - 1];
+                    if (!previous.trim().isEmpty()) {
+                        headerLine = previous;
+                    }
                 }
                 continue;
             }
