@@ -1,9 +1,9 @@
 package me.bechberger.jstall.util.llm;
 
-import me.bechberger.jstall.util.json.JsonParser;
-import me.bechberger.jstall.util.json.JsonPrinter;
-import me.bechberger.jstall.util.json.JsonValue;
-import me.bechberger.jstall.util.json.JsonValue.*;
+import me.bechberger.jstall.util.JsonValueUtils;
+import me.bechberger.util.json.JSONParser;
+import me.bechberger.util.json.PrettyPrinter;
+import me.bechberger.util.json.Util;
 
 import java.io.IOException;
 import java.net.URI;
@@ -11,7 +11,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Client for the Gardener answering-machine API.
@@ -97,20 +100,20 @@ public class AnsweringMachineClient {
 
     private String buildRequestBody(String model, List<Message> messages) {
         // Build messages array
-        JsonArray messagesArray = new JsonArray();
+        List<Object> messagesArray = new ArrayList<>();
         for (Message msg : messages) {
-            JsonObject messageObj = new JsonObject()
-                .put("role", new JsonString(msg.role))
-                .put("content", new JsonString(msg.content));
-            messagesArray = messagesArray.add(messageObj);
+            Map<String, Object> messageObj = new LinkedHashMap<>();
+            messageObj.put("role", msg.role);
+            messageObj.put("content", msg.content);
+            messagesArray.add(messageObj);
         }
 
         // Build root object
-        JsonObject root = new JsonObject()
-            .put("model", new JsonString(model))
-            .put("messages", messagesArray);
+        Map<String, Object> root = new LinkedHashMap<>();
+        root.put("model", model);
+        root.put("messages", messagesArray);
 
-        return JsonPrinter.printCompact(root);
+        return PrettyPrinter.compactPrint(root);
     }
 
     private HttpRequest buildRequest(String apiKey, String requestBody) {
@@ -132,10 +135,10 @@ public class AnsweringMachineClient {
 
         // Parse response and extract content
         try {
-            JsonValue root = JsonParser.parse(response.body());
+            Object root = JSONParser.parse(response.body());
             String content = extractContentFromResponse(root);
             outputHandler.accept(content);
-        } catch (JsonParser.JsonParseException e) {
+        } catch (Exception e) {
             throw new IOException("Failed to parse API response", e);
         }
     }
@@ -169,19 +172,19 @@ public class AnsweringMachineClient {
      * Extracts content string from API response JSON.
      * Expected structure: { "choices": [{ "message": { "content": "..." } }] }
      */
-    private String extractContentFromResponse(JsonValue root) throws IOException {
+    private String extractContentFromResponse(Object root) throws IOException {
         try {
-            JsonObject obj = root.asObject();
-            JsonArray choices = obj.get("choices").asArray();
+            Map<String, Object> obj = Util.asMap(root);
+            List<Object> choices = Util.asList(obj.get("choices"));
 
             if (choices.isEmpty()) {
                 throw new IOException("Unexpected API response format: empty choices array");
             }
 
-            JsonObject firstChoice = choices.get(0).asObject();
-            JsonObject message = firstChoice.get("message").asObject();
-            return message.get("content").asString();
-        } catch (IllegalStateException e) {
+            Map<String, Object> firstChoice = Util.asMap(choices.get(0));
+            Map<String, Object> message = Util.asMap(firstChoice.get("message"));
+            return JsonValueUtils.asString(message.get("content"));
+        } catch (IllegalArgumentException e) {
             throw new IOException("Unexpected API response format: " + e.getMessage(), e);
         }
     }
@@ -192,14 +195,12 @@ public class AnsweringMachineClient {
      */
     private String extractErrorMessage(String body) {
         try {
-            JsonValue root = JsonParser.parse(body);
-            if (root.isObject()) {
-                JsonObject obj = root.asObject();
-                if (obj.has("error") && obj.get("error").isObject()) {
-                    JsonObject error = obj.get("error").asObject();
-                    if (error.has("message") && error.get("message").isString()) {
-                        return error.get("message").asString();
-                    }
+            Map<String, Object> obj = Util.asMap(JSONParser.parse(body));
+            Object errorValue = obj.get("error");
+            if (errorValue instanceof Map<?, ?>) {
+                Map<String, Object> error = Util.asMap(errorValue);
+                if (error.get("message") instanceof String message) {
+                    return message;
                 }
             }
         } catch (Exception e) {
@@ -207,7 +208,6 @@ public class AnsweringMachineClient {
         }
         return null;
     }
-
 
     /**
      * Exception thrown when API returns an error.

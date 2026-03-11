@@ -1,9 +1,5 @@
 package me.bechberger.jstall.provider;
 
-import me.bechberger.jstall.util.JVMDiscovery;
-import me.bechberger.jstall.util.json.JsonPrinter;
-import me.bechberger.jstall.util.json.JsonValue;
-
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -11,6 +7,8 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+
+import me.bechberger.util.json.PrettyPrinter;
 
 /**
  * Test utility for building recording ZIP files without needing actual JVMs.
@@ -66,25 +64,24 @@ public class RecordingTestBuilder {
     }
 
     private void writeMetadata(ZipOutputStream zipOut, String rootPath) throws IOException {
-        Map<String, JsonValue> metadata = new LinkedHashMap<>();
-        metadata.put("format_version", new JsonValue.JsonNumber(RecordingProvider.FORMAT_VERSION));
-        metadata.put("version", new JsonValue.JsonString(version));
-        metadata.put("created_at", new JsonValue.JsonNumber(createdAt));
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("format_version", RecordingProvider.FORMAT_VERSION);
+        metadata.put("version", version);
+        metadata.put("created_at", createdAt);
 
-        List<JsonValue> jvmsList = new ArrayList<>();
+        List<Object> jvmsList = new ArrayList<>();
         for (JvmRecording jvm : jvms) {
-            Map<String, JsonValue> jvmEntry = new LinkedHashMap<>();
-            jvmEntry.put("pid", new JsonValue.JsonNumber(jvm.pid));
-            jvmEntry.put("mainClass", new JsonValue.JsonString(jvm.mainClass));
-            jvmEntry.put("success", new JsonValue.JsonBoolean(jvm.successful));
-            jvmEntry.put("started_at", new JsonValue.JsonNumber(jvm.startedAt));
-            jvmEntry.put("finished_at", new JsonValue.JsonNumber(jvm.finishedAt));
-            jvmsList.add(new JsonValue.JsonObject(jvmEntry));
+            Map<String, Object> jvmEntry = new LinkedHashMap<>();
+            jvmEntry.put("pid", jvm.pid);
+            jvmEntry.put("mainClass", jvm.mainClass);
+            jvmEntry.put("success", jvm.successful);
+            jvmEntry.put("started_at", jvm.startedAt);
+            jvmEntry.put("finished_at", jvm.finishedAt);
+            jvmsList.add(jvmEntry);
         }
-        metadata.put("jvms", new JsonValue.JsonArray(jvmsList));
+        metadata.put("jvms", jvmsList);
 
-        JsonValue.JsonObject metadataObj = new JsonValue.JsonObject(metadata);
-        String json = JsonPrinter.print(metadataObj);
+        String json = PrettyPrinter.prettyPrint(metadata);
 
         ZipEntry entry = new ZipEntry(rootPath + "metadata.json");
         zipOut.putNextEntry(entry);

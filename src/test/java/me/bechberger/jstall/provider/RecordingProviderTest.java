@@ -145,8 +145,8 @@ class RecordingProviderTest {
 
         assertNotNull(metadata);
         assertEquals(RecordingProvider.FORMAT_VERSION, 
-            metadata.get("format_version").asLong());
-        assertEquals(Main.VERSION, metadata.get("version").asString());
+            (long)(double)metadata.get("format_version"));
+        assertEquals(Main.VERSION, metadata.get("version"));
     }
 
     @Test
@@ -264,6 +264,6 @@ class RecordingProviderTest {
             .build(outputFile);
 
         ReplayProvider replay = new ReplayProvider(outputFile);
-        assertEquals(Main.VERSION, replay.metadata().get("version").asString());
+        assertEquals(Main.VERSION, replay.metadata().get("version"));
     }
 }

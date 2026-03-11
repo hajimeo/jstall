@@ -6,9 +6,9 @@ import me.bechberger.jstall.provider.requirement.DataRequirements;
 import me.bechberger.jstall.provider.requirement.JcmdRequirement;
 import me.bechberger.jstall.util.JMXDiagnosticHelper;
 import me.bechberger.jstall.util.JVMDiscovery;
-import me.bechberger.jstall.util.json.JsonParser;
-import me.bechberger.jstall.util.json.JsonPrinter;
-import me.bechberger.jstall.util.json.JsonValue;
+import me.bechberger.util.json.JSONParser;
+import me.bechberger.util.json.PrettyPrinter;
+import me.bechberger.util.json.Util;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -216,14 +216,14 @@ public class RecordingProvider {
                                DataRequirements requirements) throws IOException {
         long createdAt = System.currentTimeMillis();
 
-        List<JsonValue> jvms = new ArrayList<>();
+        List<Object> jvms = new ArrayList<>();
         for (CollectedJvmData item : collected) {
-            Map<String, JsonValue> fields = new LinkedHashMap<>();
-            fields.put("pid", new JsonValue.JsonNumber(item.process().pid()));
-            fields.put("mainClass", new JsonValue.JsonString(item.process().mainClass()));
-            fields.put("success", new JsonValue.JsonBoolean(item.successful()));
-            fields.put("startedAt", new JsonValue.JsonNumber(item.startedAt()));
-            fields.put("finishedAt", new JsonValue.JsonNumber(item.finishedAt()));
+            Map<String, Object> fields = new LinkedHashMap<>();
+            fields.put("pid", item.process().pid());
+            fields.put("mainClass", item.process().mainClass());
+            fields.put("success", item.successful());
+            fields.put("startedAt", item.startedAt());
+            fields.put("finishedAt", item.finishedAt());
             
             // Extract VM.flags, VM.command_line, and VM.uptime from collected data (metadata-only)
             if (item.successful()) {
@@ -231,30 +231,30 @@ public class RecordingProvider {
                 String vmCommandLine = extractMetadataField(item.data(), "VM.command_line");
                 String vmUptime = extractMetadataField(item.data(), "VM.uptime");
                 if (vmFlags != null) {
-                    fields.put("vmFlags", new JsonValue.JsonString(vmFlags));
+                    fields.put("vmFlags", vmFlags);
                 }
                 if (vmCommandLine != null) {
-                    fields.put("vmCommandLine", new JsonValue.JsonString(vmCommandLine));
+                    fields.put("vmCommandLine", vmCommandLine);
                 }
                 if (vmUptime != null) {
-                    fields.put("vmUptime", new JsonValue.JsonString(vmUptime));
+                    fields.put("vmUptime", vmUptime);
                 }
             }
             
             if (!item.successful() && item.errorMessage() != null) {
-                fields.put("error", new JsonValue.JsonString(item.errorMessage()));
+                fields.put("error", item.errorMessage());
             }
-            jvms.add(new JsonValue.JsonObject(fields));
+            jvms.add(fields);
         }
 
-        Map<String, JsonValue> root = new LinkedHashMap<>();
-        root.put("formatVersion", new JsonValue.JsonNumber(FORMAT_VERSION));
-        root.put("jstallVersion", new JsonValue.JsonString(jstallVersion));
-        root.put("createdAt", new JsonValue.JsonNumber(createdAt));
+        Map<String, Object> root = new LinkedHashMap<>();
+        root.put("formatVersion", FORMAT_VERSION);
+        root.put("jstallVersion", jstallVersion);
+        root.put("createdAt", createdAt);
         root.put("requirements", requirementsToJson(requirements));
-        root.put("jvms", new JsonValue.JsonArray(jvms));
+        root.put("jvms", jvms);
 
-        writeJsonEntry(zipOut, recordingRoot + "metadata.json", new JsonValue.JsonObject(root));
+        writeJsonEntry(zipOut, recordingRoot + "metadata.json", root);
     }
 
     private String extractMetadataField(Map<DataRequirement, List<CollectedData>> data, String command) {
@@ -299,65 +299,65 @@ public class RecordingProvider {
                                String pidPath,
                                CollectedJvmData targetData,
                                DataRequirements requirements) throws IOException {
-        Map<String, JsonValue> root = new LinkedHashMap<>();
-        root.put("pid", new JsonValue.JsonNumber(targetData.process().pid()));
-        root.put("mainClass", new JsonValue.JsonString(targetData.process().mainClass()));
-        root.put("success", new JsonValue.JsonBoolean(targetData.successful()));
-        root.put("startedAt", new JsonValue.JsonNumber(targetData.startedAt()));
-        root.put("finishedAt", new JsonValue.JsonNumber(targetData.finishedAt()));
+        Map<String, Object> root = new LinkedHashMap<>();
+        root.put("pid", targetData.process().pid());
+        root.put("mainClass", targetData.process().mainClass());
+        root.put("success", targetData.successful());
+        root.put("startedAt", targetData.startedAt());
+        root.put("finishedAt", targetData.finishedAt());
         if (!targetData.successful() && targetData.errorMessage() != null) {
-            root.put("error", new JsonValue.JsonString(targetData.errorMessage()));
+            root.put("error", targetData.errorMessage());
         }
 
         if (targetData.successful()) {
-            List<JsonValue> sampleCounts = new ArrayList<>();
+            List<Object> sampleCounts = new ArrayList<>();
             for (DataRequirement requirement : requirements.getRequirements()) {
                 int count = targetData.data().getOrDefault(requirement, List.of()).size();
-                sampleCounts.add(JsonValue.JsonObject.of(
-                    "type", new JsonValue.JsonString(requirement.getType()),
-                    "count", new JsonValue.JsonNumber(count)
+                sampleCounts.add(Map.of(
+                    "type", requirement.getType(),
+                    "count", count
                 ));
             }
-            root.put("sampleCounts", new JsonValue.JsonArray(sampleCounts));
+            root.put("sampleCounts", sampleCounts);
         }
 
         root.put("requirements", requirementsToJson(requirements));
 
-        writeJsonEntry(zipOut, pidPath + "manifest.json", new JsonValue.JsonObject(root));
+        writeJsonEntry(zipOut, pidPath + "manifest.json", root);
     }
 
-    private JsonValue requirementsToJson(DataRequirements requirements) {
-        List<JsonValue> list = new ArrayList<>();
+    private Object requirementsToJson(DataRequirements requirements) {
+        List<Object> list = new ArrayList<>();
 
         for (DataRequirement requirement : requirements.getRequirements()) {
-            Map<String, JsonValue> item = new LinkedHashMap<>();
-            item.put("type", new JsonValue.JsonString(requirement.getType()));
-            item.put("count", new JsonValue.JsonNumber(requirement.getSchedule().count()));
-            item.put("intervalMs", new JsonValue.JsonNumber(requirement.getSchedule().intervalMs()));
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("type", requirement.getType());
+            item.put("count", requirement.getSchedule().count());
+            item.put("intervalMs", requirement.getSchedule().intervalMs());
 
             if (requirement instanceof JcmdRequirement jcmd) {
-                item.put("command", new JsonValue.JsonString(jcmd.getCommand()));
-                List<JsonValue> args = new ArrayList<>();
+                item.put("command", jcmd.getCommand());
+                List<Object> args = new ArrayList<>();
                 if (jcmd.getArgs() != null) {
                     for (String arg : jcmd.getArgs()) {
-                        args.add(new JsonValue.JsonString(arg));
+                        args.add(arg);
                     }
                 }
-                item.put("args", new JsonValue.JsonArray(args));
+                item.put("args", args);
             }
 
-            list.add(new JsonValue.JsonObject(item));
+            list.add(item);
         }
 
-        return new JsonValue.JsonArray(list);
+        return list;
     }
 
     private void writeJsonEntry(ZipOutputStream zipOut,
                                 String entryName,
-                                JsonValue value) throws IOException {
+                                Object value) throws IOException {
         ZipEntry entry = new ZipEntry(entryName);
         zipOut.putNextEntry(entry);
-        zipOut.write(JsonPrinter.print(value).getBytes(StandardCharsets.UTF_8));
+        zipOut.write(PrettyPrinter.prettyPrint(value).getBytes(StandardCharsets.UTF_8));
         zipOut.closeEntry();
     }
 
@@ -370,7 +370,7 @@ public class RecordingProvider {
         zipOut.closeEntry();
     }
 
-    public static JsonValue.JsonObject loadMetadata(Path recordingZip) throws IOException {
+    public static Map<String, Object> loadMetadata(Path recordingZip) throws IOException {
         try (java.util.zip.ZipFile zipFile = new java.util.zip.ZipFile(recordingZip.toFile())) {
             ZipEntry metadataEntry = zipFile.getEntry("metadata.json");
             if (metadataEntry == null) {
@@ -388,7 +388,11 @@ public class RecordingProvider {
                 throw new IOException("Recording is missing metadata.json");
             }
             String content = new String(zipFile.getInputStream(metadataEntry).readAllBytes(), StandardCharsets.UTF_8);
-            return JsonParser.parse(content).asObject();
+            try {
+                return Util.asMap(JSONParser.parse(content));
+            } catch (RuntimeException e) {
+                throw new IOException("Failed to parse recording metadata", e);
+            }
         }
     }
 

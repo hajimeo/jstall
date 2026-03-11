@@ -1,12 +1,8 @@
 package me.bechberger.jstall.util.llm;
 
-import me.bechberger.jstall.util.json.JsonParser;
-import me.bechberger.jstall.util.json.JsonPrinter;
-import me.bechberger.jstall.util.json.JsonValue;
-import me.bechberger.jstall.util.json.JsonValue.JsonArray;
-import me.bechberger.jstall.util.json.JsonValue.JsonBoolean;
-import me.bechberger.jstall.util.json.JsonValue.JsonObject;
-import me.bechberger.jstall.util.json.JsonValue.JsonString;
+import me.bechberger.util.json.JSONParser;
+import me.bechberger.util.json.PrettyPrinter;
+import me.bechberger.util.json.Util;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -17,7 +13,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * LLM provider implementation for Ollama (local models) that calls Ollama's HTTP API directly.
@@ -54,12 +53,12 @@ public class OllamaLlmProvider implements LlmProvider {
     public String chat(String model, List<LlmProvider.Message> messages, StreamHandlers handlers)
             throws IOException, LlmProvider.LlmException {
 
-        JsonObject body = buildChatRequestBody(model, messages, true, resolveThinkMode(model, handlers));
+        Map<String, Object> body = buildChatRequestBody(model, messages, true, resolveThinkMode(model, handlers));
         HttpRequest request = HttpRequest.newBuilder()
             .uri(baseUri.resolve("/api/chat"))
             .timeout(Duration.ofMinutes(20))
             .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(JsonPrinter.printCompact(body)))
+            .POST(HttpRequest.BodyPublishers.ofString(PrettyPrinter.compactPrint(body)))
             .build();
 
         try {
@@ -79,18 +78,18 @@ public class OllamaLlmProvider implements LlmProvider {
                         continue;
                     }
 
-                    JsonValue chunk;
+                    Object chunk;
                     try {
-                        chunk = JsonParser.parse(line);
-                    } catch (JsonParser.JsonParseException e) {
+                        chunk = JSONParser.parse(line);
+                    } catch (Exception e) {
                         // Ignore malformed chunks rather than aborting the whole request
                         continue;
                     }
 
-                    JsonObject obj = chunk.asObject();
+                    Map<String, Object> obj = Util.asMap(chunk);
 
                     // done flag is per-chunk
-                    boolean done = obj.has("done") && obj.get("done").isBoolean() && obj.get("done").asBoolean();
+                    boolean done = obj.get("done") instanceof Boolean doneValue && doneValue;
 
                     String token = extractMessageContent(obj);
                     if (token != null && !token.isEmpty()) {
@@ -124,12 +123,12 @@ public class OllamaLlmProvider implements LlmProvider {
     public String getRawResponse(String model, List<LlmProvider.Message> messages)
             throws IOException, LlmProvider.LlmException {
 
-        JsonObject body = buildChatRequestBody(model, messages, false, resolveThinkMode(model, null));
+        Map<String, Object> body = buildChatRequestBody(model, messages, false, resolveThinkMode(model, null));
         HttpRequest request = HttpRequest.newBuilder()
             .uri(baseUri.resolve("/api/chat"))
             .timeout(Duration.ofMinutes(20))
             .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(JsonPrinter.printCompact(body)))
+            .POST(HttpRequest.BodyPublishers.ofString(PrettyPrinter.compactPrint(body)))
             .build();
 
         try {
@@ -168,22 +167,23 @@ public class OllamaLlmProvider implements LlmProvider {
         return configured;
     }
 
-    private JsonObject buildChatRequestBody(String model,
-                                           List<LlmProvider.Message> messages,
-                                           boolean stream,
-                                           AiConfig.OllamaThinkMode thinkMode) {
+    private Map<String, Object> buildChatRequestBody(String model,
+                                                     List<LlmProvider.Message> messages,
+                                                     boolean stream,
+                                                     AiConfig.OllamaThinkMode thinkMode) {
 
-        JsonArray msgs = new JsonArray();
+        List<Object> msgs = new ArrayList<>();
         for (LlmProvider.Message m : messages) {
-            msgs = msgs.add(new JsonObject()
-                .put("role", new JsonString(m.role()))
-                .put("content", new JsonString(m.content())));
+            Map<String, Object> msg = new LinkedHashMap<>();
+            msg.put("role", m.role());
+            msg.put("content", m.content());
+            msgs.add(msg);
         }
 
-        JsonObject root = new JsonObject()
-            .put("model", new JsonString(model))
-            .put("messages", msgs)
-            .put("stream", new JsonBoolean(stream));
+        Map<String, Object> root = new LinkedHashMap<>();
+        root.put("model", model);
+        root.put("messages", msgs);
+        root.put("stream", stream);
 
         // Think handling:
         // - gpt-oss requires string think (low/medium/high)
@@ -191,25 +191,25 @@ public class OllamaLlmProvider implements LlmProvider {
         if (thinkMode != null) {
             if (model != null && model.toLowerCase().startsWith("gpt-oss")) {
                 if (thinkMode != AiConfig.OllamaThinkMode.OFF) {
-                    root = root.put("think", new JsonString(thinkMode.name().toLowerCase()));
+                    root.put("think", thinkMode.name().toLowerCase());
                 }
             } else {
-                root = root.put("think", new JsonBoolean(thinkMode != AiConfig.OllamaThinkMode.OFF));
+                root.put("think", thinkMode != AiConfig.OllamaThinkMode.OFF);
             }
         }
 
         return root;
     }
 
-    private String extractMessageContent(JsonObject chunkObj) {
-        if (!chunkObj.has("message") || !chunkObj.get("message").isObject()) {
+    private String extractMessageContent(Map<String, Object> chunkObj) {
+        if (!(chunkObj.get("message") instanceof Map<?, ?>)) {
             return null;
         }
-        JsonObject msg = chunkObj.get("message").asObject();
-        if (!msg.has("content") || !msg.get("content").isString()) {
+        Map<String, Object> msg = Util.asMap(chunkObj.get("message"));
+        if (!(msg.get("content") instanceof String)) {
             return null;
         }
-        return msg.get("content").asString();
+        return (String) msg.get("content");
     }
 
     private void routeTokenWithThinkSupport(String token, StreamHandlers handlers, StringBuilder fullResponse) {
@@ -243,12 +243,9 @@ public class OllamaLlmProvider implements LlmProvider {
         String msg = body;
         // Best effort: Ollama error responses are often JSON like {"error":"..."}
         try {
-            JsonValue parsed = JsonParser.parse(body);
-            if (parsed.isObject()) {
-                JsonObject obj = parsed.asObject();
-                if (obj.has("error") && obj.get("error").isString()) {
-                    msg = obj.get("error").asString();
-                }
+            Map<String, Object> obj = Util.asMap(JSONParser.parse(body));
+            if (obj.get("error") instanceof String error) {
+                msg = error;
             }
         } catch (Exception ignored) {
         }

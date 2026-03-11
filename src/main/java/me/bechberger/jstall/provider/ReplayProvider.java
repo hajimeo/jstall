@@ -6,10 +6,11 @@ import me.bechberger.jstall.provider.requirement.CollectionSchedule;
 import me.bechberger.jstall.provider.requirement.CollectedData;
 import me.bechberger.jstall.provider.requirement.JcmdRequirement;
 import me.bechberger.jstall.provider.requirement.SystemEnvironmentRequirement;
+import me.bechberger.jstall.util.JsonValueUtils;
 import me.bechberger.jstall.util.JVMDiscovery;
 import me.bechberger.jstall.util.JcmdOutputParsers;
-import me.bechberger.jstall.util.json.JsonParser;
-import me.bechberger.jstall.util.json.JsonValue;
+import me.bechberger.util.json.JSONParser;
+import me.bechberger.util.json.Util;
 import me.bechberger.jthreaddump.model.ThreadDump;
 import me.bechberger.jthreaddump.parser.ThreadDumpParser;
 
@@ -36,7 +37,7 @@ public class ReplayProvider implements ThreadDumpProvider {
     private static final String VM_SYSTEM_PROPERTIES_COMMAND = "VM.system_properties";
 
     private final Path recordingZip;
-    private final JsonValue.JsonObject metadata;
+    private final Map<String, Object> metadata;
     private final String rootPath;
 
     public ReplayProvider(Path recordingZip) throws IOException {
@@ -45,13 +46,13 @@ public class ReplayProvider implements ThreadDumpProvider {
         this.rootPath = detectRootPath(recordingZip);
     }
 
-    public JsonValue.JsonObject metadata() {
+    public Map<String, Object> metadata() {
         return metadata;
     }
 
     public List<JVMDiscovery.JVMProcess> listRecordedJvms(String filter) {
-        JsonValue jvmsValue = metadata.fields().get("jvms");
-        if (jvmsValue == null || !jvmsValue.isArray()) {
+        Object jvmsValue = metadata.get("jvms");
+        if (!(jvmsValue instanceof List<?> items)) {
             return List.of();
         }
 
@@ -59,10 +60,10 @@ public class ReplayProvider implements ThreadDumpProvider {
         String lowerFilter = hasFilter ? filter.toLowerCase() : null;
 
         List<JVMDiscovery.JVMProcess> result = new ArrayList<>();
-        for (JsonValue item : jvmsValue.asArray().elements()) {
-            JsonValue.JsonObject jvm = item.asObject();
-            long pid = jvm.get("pid").asLong();
-            String mainClass = jvm.get("mainClass").asString();
+        for (Object item : items) {
+            Map<String, Object> jvm = Util.asMap(item);
+            long pid = JsonValueUtils.asLong(jvm.get("pid"));
+            String mainClass = JsonValueUtils.asString(jvm.get("mainClass"));
 
             if (!hasFilter || mainClass.toLowerCase().contains(lowerFilter)) {
                 result.add(new JVMDiscovery.JVMProcess(pid, mainClass));
@@ -193,7 +194,7 @@ public class ReplayProvider implements ThreadDumpProvider {
             byType.put(entry.getKey(), sorted);
         }
 
-        JsonValue.JsonObject jvmMetadata = findJvmMetadata(pid);
+        Map<String, Object> jvmMetadata = findJvmMetadata(pid);
         if (jvmMetadata != null) {
             String vmUptime = getOptionalString(jvmMetadata, "vmUptime");
             if (vmUptime != null && !vmUptime.isBlank()) {
@@ -206,38 +207,37 @@ public class ReplayProvider implements ThreadDumpProvider {
         return byType;
     }
 
-    private JsonValue.JsonObject findJvmMetadata(long pid) {
-        JsonValue jvmsValue = metadata.fields().get("jvms");
-        if (jvmsValue == null || !jvmsValue.isArray()) {
+    private Map<String, Object> findJvmMetadata(long pid) {
+        Object jvmsValue = metadata.get("jvms");
+        if (!(jvmsValue instanceof List<?> items)) {
             return null;
         }
-        for (JsonValue item : jvmsValue.asArray().elements()) {
-            if (!item.isObject()) {
+        for (Object item : items) {
+            if (!(item instanceof Map<?, ?>)) {
                 continue;
             }
-            JsonValue.JsonObject jvm = item.asObject();
-            JsonValue pidValue = jvm.get("pid");
-            if (pidValue != null && pidValue.isNumber() && pidValue.asLong() == pid) {
+            Map<String, Object> jvm = Util.asMap(item);
+            if (jvm.get("pid") instanceof Number pidValue && pidValue.longValue() == pid) {
                 return jvm;
             }
         }
         return null;
     }
 
-    private String getOptionalString(JsonValue.JsonObject obj, String key) {
-        JsonValue value = obj.get(key);
-        if (value == null || !value.isString()) {
+    private String getOptionalString(Map<String, Object> obj, String key) {
+        Object value = obj.get(key);
+        if (!(value instanceof String string)) {
             return null;
         }
-        return value.asString();
+        return string;
     }
 
-    private long getOptionalLong(JsonValue.JsonObject obj, String key, long defaultValue) {
-        JsonValue value = obj.get(key);
-        if (value == null || !value.isNumber()) {
+    private long getOptionalLong(Map<String, Object> obj, String key, long defaultValue) {
+        Object value = obj.get(key);
+        if (!(value instanceof Number number)) {
             return defaultValue;
         }
-        return value.asLong();
+        return number.longValue();
     }
 
     private String detectRootPath(Path zipPath) throws IOException {
@@ -286,21 +286,27 @@ public class ReplayProvider implements ThreadDumpProvider {
     }
 
     private SystemEnvironment parseSystemEnvironment(String json) {
-        JsonValue.JsonObject root = JsonParser.parse(json).asObject();
-        JsonValue processesValue = root.get("processes");
-        if (processesValue == null || !processesValue.isArray()) {
+        Map<String, Object> root;
+        try {
+            root = Util.asMap(JSONParser.parse(json));
+        } catch (Exception e) {
             return new SystemEnvironment(List.of());
         }
+        Object processesValue = root.get("processes");
+        if (!(processesValue instanceof List<?>)) {
+            return new SystemEnvironment(List.of());
+        }
+        List<Object> processValues = Util.asList(processesValue);
 
         List<SystemEnvironment.Process> processes = new ArrayList<>();
-        for (JsonValue processValue : processesValue.asArray().elements()) {
-            JsonValue.JsonObject process = processValue.asObject();
-            long pid = process.get("pid").asLong();
-            String command = process.get("command").asString();
+        for (Object processValue : processValues) {
+            Map<String, Object> process = Util.asMap(processValue);
+            long pid = JsonValueUtils.asLong(process.get("pid"));
+            String command = JsonValueUtils.asString(process.get("command"));
 
             Duration cpuTime = null;
-            if (process.has("cpuTimeNanos")) {
-                cpuTime = Duration.ofNanos(process.get("cpuTimeNanos").asLong());
+            if (process.get("cpuTimeNanos") instanceof Number cpuTimeNanos) {
+                cpuTime = Duration.ofNanos(cpuTimeNanos.longValue());
             }
 
             processes.add(new SystemEnvironment.Process(pid, null, cpuTime, command));
@@ -367,19 +373,14 @@ public class ReplayProvider implements ThreadDumpProvider {
             return metadata;
         }
 
-        // Simple JSON parsing for our metadata format: {"key":"value",...}
-        json = json.trim();
-        if (json.startsWith("{") && json.endsWith("}")) {
-            json = json.substring(1, json.length() - 1);
-            String[] pairs = json.split(",");
-            for (String pair : pairs) {
-                String[] kv = pair.split(":", 2);
-                if (kv.length == 2) {
-                    String key = kv[0].trim().replace("\"", "");
-                    String value = kv[1].trim().replace("\"", "");
-                    metadata.put(key, value);
+        try {
+            Map<String, Object> parsed = Util.asMap(JSONParser.parse(json));
+            for (Map.Entry<String, Object> entry : parsed.entrySet()) {
+                if (entry.getValue() != null) {
+                    metadata.put(entry.getKey(), String.valueOf(entry.getValue()));
                 }
             }
+        } catch (Exception ignored) {
         }
 
         return metadata;

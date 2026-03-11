@@ -2,12 +2,10 @@ package me.bechberger.jstall.provider.requirement;
 
 import me.bechberger.jstall.model.SystemEnvironment;
 import me.bechberger.jstall.util.JMXDiagnosticHelper;
-import me.bechberger.jstall.util.json.JsonPrinter;
-import me.bechberger.jstall.util.json.JsonValue;
+import me.bechberger.util.json.PrettyPrinter;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -56,26 +54,26 @@ public class SystemEnvironmentRequirement implements DataRequirement {
     
     private String systemEnvironmentToJson(SystemEnvironment env) {
         // Convert SystemEnvironment to JSON manually
-        List<JsonValue> processes = env.processes().stream()
+        List<Object> processes = env.processes().stream()
             .map(p -> {
-                Map<String, JsonValue> pMap = new java.util.HashMap<>();
-                pMap.put("pid", new JsonValue.JsonNumber(p.pid()));
-                pMap.put("command", JsonValue.primitive(p.command()));
+                Map<String, Object> pMap = new java.util.HashMap<>();
+                pMap.put("pid", p.pid());
+                pMap.put("command", p.command());
                 if (p.info().startInstant().isPresent()) {
-                    pMap.put("startTimeMillis", JsonValue.primitive(p.info().startInstant().get().toEpochMilli()));
+                    pMap.put("startTimeMillis", p.info().startInstant().get().toEpochMilli());
                 }
                 if (p.info().user().isPresent()) {
-                    pMap.put("user", JsonValue.primitive(p.info().user().get()));
+                    pMap.put("user", p.info().user().get());
                 }
                 if (p.cpuTime() != null) {
-                    pMap.put("cpuTimeNanos", new JsonValue.JsonNumber(p.cpuTime().toNanos()));
+                    pMap.put("cpuTimeNanos", p.cpuTime().toNanos());
                 }
-                return new JsonValue.JsonObject(pMap);
+                return pMap;
             })
             .collect(Collectors.toList());
 
-        Map<String, JsonValue> root = Map.of("processes", new JsonValue.JsonArray(processes));
-        return JsonPrinter.print(new JsonValue.JsonObject(root));
+        Map<String, Object> root = Map.of("processes", processes);
+        return PrettyPrinter.prettyPrint(root);
     }
     
     @Override

@@ -208,7 +208,7 @@ public class DataRequirements {
 
         /**
          * Adds fast/inexpensive jcmd commands that are safe to collect at startup.
-         * These commands typically complete in < 300ms and provide useful diagnostic info.
+         * These commands typically complete in &lt; 300ms and provide useful diagnostic info.
          * Commands included: VM.info, GC.heap_info, Compiler.queue, 
          * VM.classloader_stats, VM.metaspace (VM.flags, VM.command_line, and VM.uptime go to metadata.json instead).
          */
