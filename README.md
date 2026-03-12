@@ -78,27 +78,34 @@ Or use with [JBang](https://www.jbang.dev/): `jbang jstall@parttimenerd/jstall <
 
 ### Usage
 
+<!-- BEGIN help -->
 ```bash
-> jstall --help
-Usage: jstall [-hV] [COMMAND]
+Usage: jstall [-hV] [--file=<replayFile>] [COMMAND]
 One-shot JVM inspection tool
-  -h, --help      Show this help message and exit.
-  -V, --version   Print version information and exit.
+  -f, --file=<replayFile>    File path for replay mode (replay ZIP file created
+                             by record command)
+  -h, --help                 Show this help message and exit.
+  -V, --version              Print version information and exit.
 Commands:
-  status            Run multiple analyzers over thread dumps (default command)
-  jvm-support       Check whether the target JVM is likely still supported (based on java.version.date)
-  deadlock          Detect JVM-reported thread deadlocks
-  most-work         Identify threads doing the most work across dumps
-  flame             Generate a flamegraph of the application using async-profiler
-  threads           List all threads sorted by CPU time
-  waiting-threads   Identify threads waiting without progress (potentially
-                      starving)
-  dependency-graph  Show thread dependencies (lock wait relationships)
-  compiler-queue    Analyze compiler queue state showing active compilations and queued tasks
-  ai                AI-powered analysis using LLM
-  ai full           AI-powered analysis of all JVMs on the system
-  list              List running JVM processes (excluding this tool)
+  record                Record all data into a zip for later analysis
+  status                Run multiple analyzers over thread dumps (default command)
+  deadlock              Detect JVM-reported thread deadlocks
+  most-work             Identify threads doing the most work across dumps
+  flame                 Generate a flamegraph of the application using async-profiler
+  threads               List all threads sorted by CPU time
+  waiting-threads       Identify threads waiting without progress (potentially starving)
+  dependency-graph      Show thread dependencies (which threads wait on locks held by others)
+  vm-vitals             Show VM.vitals (if available)
+  gc-heap-info          Show GC.heap_info last absolute values and change
+  vm-classloader-stats  Show VM.classloader_stats grouped by classloader type
+  vm-metaspace          Show VM.metaspace summary and trend
+  compiler-queue        Analyze compiler queue state showing active compilations and queued tasks
+  ai                    AI-powered thread dump analysis using LLM
+  list                  List running JVM processes (excluding this tool)
+  processes             Detect other processes running on the system that consume high CPU time
+  jvm-support           Check whether the target JVM is likely still supported (based on java.version.date)
 ```
+<!-- END help -->
 
 ### Usage as a library
 
@@ -157,11 +164,13 @@ Runs multiple analyzers (deadlock, most-work, threads, dependency-graph) over sh
 
 <!-- BEGIN help_status -->
 ```
-Usage: jstall status [-hV] [--top=<top>] [--no-native] [--dumps=<dumps>]
-                     [--interval=<interval>] [--keep] [--intelligent-filter] [<targets>...]
+Usage: jstall status [-hV] [--dumps=<dumps>] [--interval=<interval>] [--keep]
+                     [--intelligent-filter] [--full] [--top=<top>] [--no-native] [<targets>...]
 Run multiple analyzers over thread dumps (default command)
       [<targets>...]       PID, filter or dump files
       --dumps=<dumps>      Number of dumps to collect, default is none
+      --full               Run all analyses including expensive ones (only for
+                           status command)
   -h, --help               Show this help message and exit.
       --intelligent-filter Use intelligent stack trace filtering (collapses
                            internal frames, focuses on application code)
@@ -205,12 +214,14 @@ Usage: jstall jvm-support [-hV] [--dumps=<dumps>] [--interval=<interval>] [--kee
 
 <!-- BEGIN help_most_work -->
 ```
-Usage: jstall most-work [-hV] [--top=<top>] [--no-native]
-                        [--stack-depth=<stackDepth>] [--dumps=<dumps>] [--interval=<interval>] [--keep]
-                        [--intelligent-filter] [<targets>...]
+Usage: jstall most-work [-hV] [--dumps=<dumps>] [--interval=<interval>] [--keep]
+                        [--intelligent-filter] [--full] [--top=<top>] [--no-native]
+                        [--stack-depth=<stackDepth>] [<targets>...]
 Identify threads doing the most work across dumps
       [<targets>...]            PID, filter or dump files
       --dumps=<dumps>           Number of dumps to collect, default is none
+      --full                    Run all analyses including expensive ones (only
+                                for status command)
   -h, --help                    Show this help message and exit.
       --intelligent-filter      Use intelligent stack trace filtering (collapses
                                 internal frames, focuses on application code)
@@ -235,10 +246,12 @@ Shows CPU time, CPU percentage, core utilization, state distribution, and activi
 <!-- BEGIN help_deadlock -->
 ```
 Usage: jstall deadlock [-hV] [--dumps=<dumps>] [--interval=<interval>] [--keep]
-                       [--intelligent-filter] [<targets>...]
+                       [--intelligent-filter] [--full] [<targets>...]
 Detect JVM-reported thread deadlocks
       [<targets>...]       PID, filter or dump files
       --dumps=<dumps>      Number of dumps to collect, default is none
+      --full               Run all analyses including expensive ones (only for
+                           status command)
   -h, --help               Show this help message and exit.
       --intelligent-filter Use intelligent stack trace filtering (collapses
                            internal frames, focuses on application code)
@@ -259,11 +272,13 @@ Lists all threads sorted by CPU time in a table format.
 
 <!-- BEGIN help_threads -->
 ```
-Usage: jstall threads [-hV] [--no-native] [--dumps=<dumps>]
-                      [--interval=<interval>] [--keep] [--intelligent-filter] [<targets>...]
+Usage: jstall threads [-hV] [--dumps=<dumps>] [--interval=<interval>] [--keep]
+                      [--intelligent-filter] [--full] [--no-native] [<targets>...]
 List all threads sorted by CPU time
       [<targets>...]       PID, filter or dump files
       --dumps=<dumps>      Number of dumps to collect, default is none
+      --full               Run all analyses including expensive ones (only for
+                           status command)
   -h, --help               Show this help message and exit.
       --intelligent-filter Use intelligent stack trace filtering (collapses
                            internal frames, focuses on application code)
@@ -286,12 +301,14 @@ Identifies threads waiting on the same lock instance across all dumps with no CP
 
 <!-- BEGIN help_waiting_threads -->
 ```
-Usage: jstall waiting-threads [-hV] [--no-native] [--stack-depth=<stackDepth>]
-                              [--dumps=<dumps>] [--interval=<interval>] [--keep] [--intelligent-filter]
-                              [<targets>...]
+Usage: jstall waiting-threads [-hV] [--dumps=<dumps>] [--interval=<interval>]
+                              [--keep] [--intelligent-filter] [--full] [--no-native]
+                              [--stack-depth=<stackDepth>] [<targets>...]
 Identify threads waiting without progress (potentially starving)
       [<targets>...]            PID, filter or dump files
       --dumps=<dumps>           Number of dumps to collect, default is none
+      --full                    Run all analyses including expensive ones (only
+                                for status command)
   -h, --help                    Show this help message and exit.
       --intelligent-filter      Use intelligent stack trace filtering (collapses
                                 internal frames, focuses on application code)
@@ -776,6 +793,12 @@ Generate a flamegraph of the application using async-profiler
       --open                   Automatically open the generated HTML file in
                                browser
   -V, --version                Print version information and exit.
+
+Examples:
+  jstall flame 12345 --output flame.html --duration 15s
+  # Allocation flamegraph for a JVM running MyAppMainClass with a 20s duration
+  # open flamegraph automatically after generation
+  jstall flame MyAppMainClass --event alloc --duration 20s --open
 ```
 <!-- END help_flame -->
 

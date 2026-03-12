@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Add `jvm-support` command to check if a JVM is outdated
+- Add `compiler-queue`, `gc-heap-info`, `vm-vitals`, ``vm-metaspace`, `processes` commands
 - Add `record` and replay
 
 ### Fixed

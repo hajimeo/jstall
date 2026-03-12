@@ -60,6 +60,18 @@ def build_project_and_get_help() -> dict[str, str]:
         return {}
 
     help_outputs = {}
+
+    root_result = subprocess.run(
+        ["java", "-jar", str(jar_path), "--help"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True
+    )
+    if root_result.returncode == 0:
+        help_outputs[""] = root_result.stdout.strip()
+    elif root_result.stderr.strip():
+        help_outputs[""] = root_result.stderr.strip()
+
     commands = ["list", "status", "deadlock", "most-work", "threads", "waiting-threads", "flame"]
 
     for cmd in commands:
@@ -83,36 +95,35 @@ def update_readme_help_section(content: str, command: str, help_text: str) -> st
     """
     Update a CLI help section in README.
 
-    Sections are marked with:
+    Sections are marked with either:
+    <!-- BEGIN help -->
+    ```
+    help output
+    ```
+    <!-- END help -->
+
+    or:
     <!-- BEGIN help_command -->
     ```
     help output
     ```
     <!-- END help_command -->
     """
-    # Convert "most-work" to "most_work"
-    section_marker = f"help_{command.replace('-', '_')}"
-    # Match the markers, capturing the opening and closing without their internal whitespace
-    pattern = rf'(<!-- BEGIN {section_marker} -->\s*```)\s*(.*?)\s*(```\s*<!-- END {section_marker} -->)'
+    section_marker = "help" if command == "" else f"help_{command.replace('-', '_')}"
+    pattern = rf'(<!-- BEGIN {section_marker} -->\s*```(?:bash)?\s*)\s*(.*?)\s*(```\s*<!-- END {section_marker} -->)'
 
     if re.search(pattern, content, re.DOTALL):
-        # Strip leading and trailing empty lines from help text
         help_lines = help_text.splitlines()
-        # Remove leading empty lines
         while help_lines and not help_lines[0].strip():
             help_lines.pop(0)
-        # Remove trailing empty lines
         while help_lines and not help_lines[-1].strip():
             help_lines.pop()
 
         cleaned_help = '\n'.join(help_lines)
-
-        # Escape backslashes in help_text to prevent regex interpretation
         escaped_help = cleaned_help.replace('\\', '\\\\')
-        # Put content immediately after opening ``` with a newline, then content, then newline before closing ```
         return re.sub(
             pattern,
-            rf'\g<1>\n{escaped_help}\n\g<3>',
+            rf'\g<1>{escaped_help}\n\g<3>',
             content,
             flags=re.DOTALL
         )
@@ -120,12 +131,12 @@ def update_readme_help_section(content: str, command: str, help_text: str) -> st
     return content
 
 
-
 def sync_help_to_readme(readme_content: str, help_outputs: dict[str, str]) -> str:
     """Sync CLI --help outputs to README."""
     for command, help_text in help_outputs.items():
         readme_content = update_readme_help_section(readme_content, command, help_text)
-        print(f"Synced {command} --help to README")
+        printable_command = "jstall" if command == "" else command
+        print(f"Synced {printable_command} --help to README")
 
     return readme_content
 
