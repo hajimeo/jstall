@@ -1,6 +1,7 @@
 package me.bechberger.jstall;
 
 import me.bechberger.jstall.cli.*;
+import me.bechberger.jstall.cli.record.RecordMainCommand;
 import me.bechberger.femtocli.CommandConfig;
 import me.bechberger.femtocli.FemtoCli;
 import me.bechberger.femtocli.annotations.Command;
@@ -19,7 +20,7 @@ import java.nio.file.Path;
     description = "One-shot JVM inspection tool",
     version = "0.4.11",
     subcommands = {
-        RecordCommand.class,
+        RecordMainCommand.class,
         StatusCommand.class,
         DeadLockCommand.class,
         MostWorkCommand.class,
@@ -68,7 +69,7 @@ public class Main implements Runnable {
         System.out.println("Usage: jstall <command> <pid|file> [options]");
         System.out.println();
         System.out.println("Available commands:");
-        System.out.println("  record            - Record diagnostics into a replayable ZIP");
+        System.out.println("  record            - Record diagnostics and manage recording archives");
         System.out.println("  list              - List running JVM processes (optionally filter by name)");
         System.out.println("  status            - Show overall status (deadlocks + most active threads)");
         System.out.println("  deadlock          - Check for deadlocks");

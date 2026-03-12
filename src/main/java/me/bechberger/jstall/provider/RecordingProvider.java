@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Enumeration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -371,29 +370,7 @@ public class RecordingProvider {
     }
 
     public static Map<String, Object> loadMetadata(Path recordingZip) throws IOException {
-        try (java.util.zip.ZipFile zipFile = new java.util.zip.ZipFile(recordingZip.toFile())) {
-            ZipEntry metadataEntry = zipFile.getEntry("metadata.json");
-            if (metadataEntry == null) {
-                Enumeration<? extends ZipEntry> entries = zipFile.entries();
-                while (entries.hasMoreElements()) {
-                    ZipEntry candidate = entries.nextElement();
-                    String name = candidate.getName();
-                    if (!candidate.isDirectory() && name.endsWith("/metadata.json")) {
-                        metadataEntry = candidate;
-                        break;
-                    }
-                }
-            }
-            if (metadataEntry == null) {
-                throw new IOException("Recording is missing metadata.json");
-            }
-            String content = new String(zipFile.getInputStream(metadataEntry).readAllBytes(), StandardCharsets.UTF_8);
-            try {
-                return Util.asMap(JSONParser.parse(content));
-            } catch (RuntimeException e) {
-                throw new IOException("Failed to parse recording metadata", e);
-            }
-        }
+        return ReplayProvider.loadMetadata(recordingZip);
     }
 
     public record RecordingSummary(Path outputFile,

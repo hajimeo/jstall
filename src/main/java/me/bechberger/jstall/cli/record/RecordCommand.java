@@ -1,4 +1,4 @@
-package me.bechberger.jstall.cli;
+package me.bechberger.jstall.cli.record;
 
 import me.bechberger.femtocli.annotations.Command;
 import me.bechberger.femtocli.annotations.Option;
@@ -31,7 +31,7 @@ import java.util.concurrent.Callable;
  * Records diagnostic data from one or more JVMs into a replayable ZIP file.
  */
 @Command(
-    name = "record",
+    name = "create",
     description = "Record all data into a zip for later analysis"
 )
 public class RecordCommand implements Callable<Integer> {
@@ -186,20 +186,15 @@ public class RecordCommand implements Callable<Integer> {
 
         if (value.matches("\\d+")) {
             long pid = Long.parseLong(value);
-            String mainClass = findMainClass(pid);
-            return List.of(new JVMDiscovery.JVMProcess(pid, mainClass));
+            for (JVMDiscovery.JVMProcess process : JVMDiscovery.listJVMs()) {
+                if (process.pid() == pid) {
+                    return List.of(process);
+                }
+            }
+            return List.of();
         }
 
         return JVMDiscovery.listJVMs(value);
-    }
-
-    private String findMainClass(long pid) throws IOException {
-        for (JVMDiscovery.JVMProcess process : JVMDiscovery.listJVMs()) {
-            if (process.pid() == pid) {
-                return process.mainClass();
-            }
-        }
-        return "<unknown>";
     }
 
     private List<Analyzer> allRecordableAnalyzers() {

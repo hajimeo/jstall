@@ -260,15 +260,6 @@ class ReplayExtendedTest {
     }
 
     @Test
-    void testRecordHelp() {
-        RunResult result = Util.run("record", "--help");
-        assertEquals(0, result.exitCode());
-        assertTrue(result.out().contains("record"), "Should contain command name");
-        assertTrue(result.out().contains("--output") || result.out().contains("-o"),
-            "Should document output option");
-    }
-
-    @Test
     void testWaitingThreadsHelp() {
         RunResult result = Util.run("waiting-threads", "--help");
         assertEquals(0, result.exitCode());

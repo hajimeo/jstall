@@ -21,11 +21,13 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Enumeration;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 /**
@@ -42,12 +44,42 @@ public class ReplayProvider implements ThreadDumpProvider {
 
     public ReplayProvider(Path recordingZip) throws IOException {
         this.recordingZip = recordingZip;
-        this.metadata = RecordingProvider.loadMetadata(recordingZip);
-        this.rootPath = detectRootPath(recordingZip);
+        try (ZipFile zipFile = new ZipFile(recordingZip.toFile())) {
+            this.rootPath = detectRootPath(zipFile);
+            this.metadata = loadMetadata(zipFile, rootPath);
+        }
+    }
+
+    public static Map<String, Object> loadMetadata(Path recordingZip) throws IOException {
+        try (ZipFile zipFile = new ZipFile(recordingZip.toFile())) {
+            return loadMetadata(zipFile, detectRootPath(zipFile));
+        }
     }
 
     public Map<String, Object> metadata() {
         return metadata;
+    }
+
+    public String rootPath() {
+        return rootPath;
+    }
+
+    public String readUtf8(String relativePath) throws IOException {
+        try (ZipFile zipFile = new ZipFile(recordingZip.toFile())) {
+            return readUtf8(zipFile, relativePath);
+        }
+    }
+
+    public byte[] readBytes(String relativePath) throws IOException {
+        try (ZipFile zipFile = new ZipFile(recordingZip.toFile())) {
+            ZipEntry entry = findEntry(zipFile, relativePath)
+                .orElseThrow(() -> new IOException("Recording is missing " + relativePath));
+            return zipFile.getInputStream(entry).readAllBytes();
+        }
+    }
+
+    public String readReadme() throws IOException {
+        return readUtf8("README.md");
     }
 
     public List<JVMDiscovery.JVMProcess> listRecordedJvms(String filter) {
@@ -240,23 +272,6 @@ public class ReplayProvider implements ThreadDumpProvider {
         return number.longValue();
     }
 
-    private String detectRootPath(Path zipPath) throws IOException {
-        try (ZipFile zipFile = new ZipFile(zipPath.toFile())) {
-            if (zipFile.getEntry("metadata.json") != null) {
-                return "";
-            }
-            Enumeration<? extends java.util.zip.ZipEntry> entries = zipFile.entries();
-            while (entries.hasMoreElements()) {
-                java.util.zip.ZipEntry entry = entries.nextElement();
-                String name = entry.getName();
-                if (!entry.isDirectory() && name.endsWith("/metadata.json")) {
-                    return name.substring(0, name.length() - "metadata.json".length());
-                }
-            }
-            return "";
-        }
-    }
-
     private long parseTimestampFromFileName(String fileName) {
         if (fileName == null || fileName.isBlank()) {
             return 0L;
@@ -333,11 +348,11 @@ public class ReplayProvider implements ThreadDumpProvider {
      * Flamegraph is always at: <pid>/flamegraphs/flame.html
      */
     public FlamegraphData getFlamegraph(long pid) throws IOException {
-        String flamePath = rootPath + pid + "/flamegraphs/flame.html";
-        String metaPath = rootPath + pid + "/flamegraphs/flame.meta.json";
+        String flamePath = pid + "/flamegraphs/flame.html";
+        String metaPath = pid + "/flamegraphs/flame.meta.json";
 
         try (ZipFile zipFile = new ZipFile(recordingZip.toFile())) {
-            var flameEntry = zipFile.getEntry(flamePath);
+            var flameEntry = findEntry(zipFile, flamePath).orElse(null);
             if (flameEntry == null) {
                 return null;
             }
@@ -351,7 +366,7 @@ public class ReplayProvider implements ThreadDumpProvider {
 
             // Load metadata from .meta.json file
             Map<String, String> profilingMetadata = new HashMap<>();
-            var metaEntry = zipFile.getEntry(metaPath);
+            var metaEntry = findEntry(zipFile, metaPath).orElse(null);
             if (metaEntry != null) {
                 String metaJson = new String(
                     zipFile.getInputStream(metaEntry).readAllBytes(),
@@ -392,10 +407,10 @@ public class ReplayProvider implements ThreadDumpProvider {
      * JFR file is always at: <pid>/jfr/default.jfr
      */
     public JfrData getJfrFile(long pid) throws IOException {
-        String jfrPath = rootPath + pid + "/jfr/default.jfr";
+        String jfrPath = pid + "/jfr/default.jfr";
 
         try (ZipFile zipFile = new ZipFile(recordingZip.toFile())) {
-            var jfrEntry = zipFile.getEntry(jfrPath);
+            var jfrEntry = findEntry(zipFile, jfrPath).orElse(null);
             if (jfrEntry == null) {
                 return null;
             }
@@ -485,5 +500,58 @@ public class ReplayProvider implements ThreadDumpProvider {
         public void writeTo(Path outputPath) throws IOException {
             java.nio.file.Files.write(outputPath, content);
         }
+    }
+
+    private static Map<String, Object> loadMetadata(ZipFile zipFile, String rootPath) throws IOException {
+        String content = readUtf8(zipFile, rootPath, "metadata.json");
+        try {
+            return Util.asMap(JSONParser.parse(content));
+        } catch (RuntimeException e) {
+            throw new IOException("Failed to parse recording metadata", e);
+        }
+    }
+
+    private static Optional<ZipEntry> findEntry(ZipFile zipFile, String rootPath, String relativePath) {
+        ZipEntry direct = zipFile.getEntry(rootPath + relativePath);
+        if (direct != null && !direct.isDirectory()) {
+            return Optional.of(direct);
+        }
+        if (!rootPath.isEmpty()) {
+            ZipEntry rootless = zipFile.getEntry(relativePath);
+            if (rootless != null && !rootless.isDirectory()) {
+                return Optional.of(rootless);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<ZipEntry> findEntry(ZipFile zipFile, String relativePath) {
+        return findEntry(zipFile, rootPath, relativePath);
+    }
+
+    private static String readUtf8(ZipFile zipFile, String rootPath, String relativePath) throws IOException {
+        ZipEntry entry = findEntry(zipFile, rootPath, relativePath)
+            .orElseThrow(() -> new IOException("Recording is missing " + relativePath));
+        return new String(zipFile.getInputStream(entry).readAllBytes(), StandardCharsets.UTF_8);
+    }
+
+    private String readUtf8(ZipFile zipFile, String relativePath) throws IOException {
+        return readUtf8(zipFile, rootPath, relativePath);
+    }
+
+    private static String detectRootPath(ZipFile zipFile) {
+        if (zipFile.getEntry("metadata.json") != null) {
+            return "";
+        }
+
+        Enumeration<? extends ZipEntry> entries = zipFile.entries();
+        while (entries.hasMoreElements()) {
+            ZipEntry entry = entries.nextElement();
+            String name = entry.getName();
+            if (!entry.isDirectory() && name.endsWith("/metadata.json")) {
+                return name.substring(0, name.length() - "metadata.json".length());
+            }
+        }
+        return "";
     }
 }

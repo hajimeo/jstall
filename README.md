@@ -621,12 +621,18 @@ jstall ai full -n 5 -i 2
 
 ## Recording & Replay
 
-You can record diagnostic data with 
+You can record diagnostic data with:
 ```bash
-jstall record <all|pid> --output <recording.zip>
+jstall record <all|pid|filter> -o <recording.zip>
 ```
 
 and replay it on any machine using the `-f/--file` option. For an example recording in this repository see the folder: [6529/](./6529/)
+
+If no target JVM can be resolved (for example, a PID that does not exist), recording fails early with:
+
+```text
+No JVM targets found for: <target>
+```
 
 Replay examples (use your recording ZIP file):
 
@@ -637,6 +643,18 @@ jstall -f <recording.zip> status
 # Replay a recording and list threads
 jstall -f <recording.zip> threads
 ```
+
+Archive utility commands:
+
+```bash
+# Print the recording README summary from the ZIP
+jstall record summary <recording.zip>
+
+# Extract the recording ZIP into a destination folder
+jstall record extract <recording.zip> <output-folder>
+```
+
+The extract command writes the full archive content (README, metadata, per-PID folders) under the destination folder.
 
 When replaying, JStall will use the recorded data files instead of querying a live JVM. If a tool needs additional data that wasn't recorded, it will skip that analysis and continue with available information.
 
