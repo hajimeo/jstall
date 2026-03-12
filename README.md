@@ -57,8 +57,13 @@ jstall flame 12345
 jstall record 12345 --output myapp-diagnostics.zip
 
 # Run status analysis on the recorded data
-jstall -f myapp-diagnostics.zip status
+jstall -f myapp-diagnostics.zip status all
+
+# Which is equivalent to
+jstall status myapp-diagnostics.zip
 ```
+
+All analysis commands also support the special target `all` to analyze every discovered JVM (or every recorded JVM in replay mode): `jstall status all` or `jstall -f myapp-diagnostics.zip status all`.
 
 ### JVM support check (part of `status`)
 
@@ -115,7 +120,7 @@ Add the following dependency to your `pom.xml`:
 <dependency>
     <groupId>me.bechberger</groupId>
     <artifactId>jstall</artifactId>
-    <version>0.5.0</version>
+    <version>0.5.1</version>
 </dependency>
 ```
 
@@ -167,7 +172,8 @@ Runs multiple analyzers (deadlock, most-work, threads, dependency-graph) over sh
 Usage: jstall status [-hV] [--dumps=<dumps>] [--interval=<interval>] [--keep]
                      [--intelligent-filter] [--full] [--top=<top>] [--no-native] [<targets>...]
 Run multiple analyzers over thread dumps (default command)
-      [<targets>...]       PID, filter or dump files
+      [<targets>...]       PID, 'all', filter or dump files (or replay ZIP as
+                           first argument)
       --dumps=<dumps>      Number of dumps to collect, default is none
       --full               Run all analyses including expensive ones (only for
                            status command)
@@ -218,7 +224,8 @@ Usage: jstall most-work [-hV] [--dumps=<dumps>] [--interval=<interval>] [--keep]
                         [--intelligent-filter] [--full] [--top=<top>] [--no-native]
                         [--stack-depth=<stackDepth>] [<targets>...]
 Identify threads doing the most work across dumps
-      [<targets>...]            PID, filter or dump files
+      [<targets>...]            PID, 'all', filter or dump files (or replay ZIP
+                                as first argument)
       --dumps=<dumps>           Number of dumps to collect, default is none
       --full                    Run all analyses including expensive ones (only
                                 for status command)
@@ -248,7 +255,8 @@ Shows CPU time, CPU percentage, core utilization, state distribution, and activi
 Usage: jstall deadlock [-hV] [--dumps=<dumps>] [--interval=<interval>] [--keep]
                        [--intelligent-filter] [--full] [<targets>...]
 Detect JVM-reported thread deadlocks
-      [<targets>...]       PID, filter or dump files
+      [<targets>...]       PID, 'all', filter or dump files (or replay ZIP as
+                           first argument)
       --dumps=<dumps>      Number of dumps to collect, default is none
       --full               Run all analyses including expensive ones (only for
                            status command)
@@ -275,7 +283,8 @@ Lists all threads sorted by CPU time in a table format.
 Usage: jstall threads [-hV] [--dumps=<dumps>] [--interval=<interval>] [--keep]
                       [--intelligent-filter] [--full] [--no-native] [<targets>...]
 List all threads sorted by CPU time
-      [<targets>...]       PID, filter or dump files
+      [<targets>...]       PID, 'all', filter or dump files (or replay ZIP as
+                           first argument)
       --dumps=<dumps>      Number of dumps to collect, default is none
       --full               Run all analyses including expensive ones (only for
                            status command)
@@ -305,7 +314,8 @@ Usage: jstall waiting-threads [-hV] [--dumps=<dumps>] [--interval=<interval>]
                               [--keep] [--intelligent-filter] [--full] [--no-native]
                               [--stack-depth=<stackDepth>] [<targets>...]
 Identify threads waiting without progress (potentially starving)
-      [<targets>...]            PID, filter or dump files
+      [<targets>...]            PID, 'all', filter or dump files (or replay ZIP
+                                as first argument)
       --dumps=<dumps>           Number of dumps to collect, default is none
       --full                    Run all analyses including expensive ones (only
                                 for status command)
@@ -661,10 +671,13 @@ Replay examples (use your recording ZIP file):
 
 ```bash
 # Replay a recording and run the status analyzers
-jstall -f <recording.zip> status
+jstall -f <recording.zip> status all
 
 # Replay a recording and list threads
-jstall -f <recording.zip> threads
+jstall -f <recording.zip> threads all
+
+# Or with the file as a positional argument
+jstall threads <recording.zip>
 ```
 
 Archive utility commands:
