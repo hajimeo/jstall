@@ -22,17 +22,17 @@ public class StatusAnalyzer extends BaseAnalyzer {
 
 
     private final List<Analyzer> ANALYZERS = List.of(
-        new DeadLockAnalyzer(),
-        new MostWorkAnalyzer(),
-        new ThreadsAnalyzer(),
-        new DependencyGraphAnalyzer(),
-        new JvmSupportAnalyzer(),
         new VmVitalsAnalyzer(),
         new GcHeapInfoAnalyzer(),
         new VmClassloaderStatsAnalyzer(),
         new VmMetaspaceAnalyzer(),
         new CompilerQueueAnalyzer(),
-        new SystemProcessAnalyzer()
+        new DeadLockAnalyzer(),
+        new MostWorkAnalyzer(),
+        new ThreadsAnalyzer(),
+        new DependencyGraphAnalyzer(),
+        new SystemProcessAnalyzer(),
+        new JvmSupportAnalyzer()
     );
 
     private final List<Analyzer> EXPENSIVE_ANALYZERS = List.of(

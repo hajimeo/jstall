@@ -250,7 +250,7 @@
         <dependency>
             <groupId>me.bechberger</groupId>
             <artifactId>ap-loader-all</artifactId>
-            <version>4.3-12</version>
+            <version>4.3-13</version>
         </dependency>
         <dependency>
             <groupId>org.jetbrains</groupId>
