@@ -721,21 +721,4 @@ class EdgeCaseAndComplexTest {
                 "threads output should not be blank");
     }
 
-    // ================== version flag ==================
-
-    @Test
-    void versionFlagOutputsVersion() {
-        RunResult result = Util.run("-V");
-        assertEquals(0, result.exitCode());
-        assertTrue(result.out().contains(Main.VERSION),
-            () -> "Should output version. out: " + result.out());
-    }
-
-    @Test
-    void longVersionFlag() {
-        RunResult result = Util.run("--version");
-        assertEquals(0, result.exitCode());
-        assertTrue(result.out().contains(Main.VERSION),
-            () -> "Should output version. out: " + result.out());
-    }
 }

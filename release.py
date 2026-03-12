@@ -835,6 +835,9 @@ def main():
     p_test_min.add_argument('--tmp', help='Use this directory as a temporary workspace (it will be deleted and recreated)')
     p_test_min.add_argument('--keep-tmp', action='store_true', help='Keep the temporary workspace directory for debugging')
 
+    # test
+    subparsers.add_parser('test', help='Run the Java test suite (mvn clean test)')
+
     # deploy-minimal
     p_deploy_min = subparsers.add_parser('deploy-minimal', help='Deploy jstall-minimal to Maven Central')
     p_deploy_min.add_argument('--tmp', help='Use this directory as a temporary workspace (it will be deleted and recreated)')

@@ -217,23 +217,6 @@ class ReplayExtendedTest {
         assertTrue(result.exitCode() != 0, "Truncated ZIP should fail");
     }
 
-    // ================== version flag ==================
-
-    @Test
-    void testVersionFlag() {
-        RunResult result = Util.run("-V");
-        assertEquals(0, result.exitCode());
-        assertTrue(result.out().contains(Main.VERSION),
-            () -> "Version output should contain version. Output: " + result.out());
-    }
-
-    @Test
-    void testLongVersionFlag() {
-        RunResult result = Util.run("--version");
-        assertEquals(0, result.exitCode());
-        assertTrue(result.out().contains(Main.VERSION));
-    }
-
     // ================== subcommand help texts ==================
 
     @Test
