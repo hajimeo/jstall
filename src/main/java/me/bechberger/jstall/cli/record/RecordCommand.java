@@ -54,7 +54,7 @@ public class RecordCommand implements Callable<Integer> {
     @Option(names = "--include", description = "Additional jcmd command to record (repeatable)")
     private List<String> include;
 
-    @Option(names = "--full", description = "Include expensive diagnostics (VM.classes, VM.class_hierarchy, GC.class_histogram)")
+    @Option(names = "--full", description = "Include expensive diagnostics (VM.classes, VM.class_hierarchy, GC.class_histogram, flame graph and JFR recording)")
     private boolean full;
 
     @Option(names = "--list-jcmd", description = "List common jcmd commands and exit")
@@ -151,7 +151,7 @@ public class RecordCommand implements Callable<Integer> {
             merged = merged.merge(analyzer.getDataRequirements(options));
         }
 
-        if (count > 1 && AsyncProfilerWindowRequirement.isPlatformSupported()) {
+        if (count > 1 && full && AsyncProfilerWindowRequirement.isPlatformSupported()) {
             DataRequirements profiling = DataRequirements.builder()
                 .withDefaults(count, intervalMs)
                 .addAsyncProfilerWindows()

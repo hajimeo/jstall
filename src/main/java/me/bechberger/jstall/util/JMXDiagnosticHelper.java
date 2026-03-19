@@ -9,7 +9,9 @@ import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Helper class for executing diagnostic commands on remote JVM processes via JMX.
@@ -103,6 +105,34 @@ public class JMXDiagnosticHelper implements AutoCloseable {
         }
     }
 
+    static class OutputCapturingThread extends Thread {
+        private final InputStream inputStream;
+        private final AtomicReference<String> outputRef;
+
+        public OutputCapturingThread(InputStream inputStream) {
+            this.inputStream = inputStream;
+            this.outputRef = new AtomicReference<>();
+        }
+
+        @Override
+        public void run() {
+            try {
+                outputRef.set(new String(inputStream.readAllBytes()));
+            } catch (IOException e) {
+                // Ignore
+            }
+        }
+
+        String getString() throws IOException {
+            try {
+                join();
+            } catch (InterruptedException e) {
+                throw new IOException("Thread interrupted while waiting for output capture", e);
+            }
+            return outputRef.get();
+        }
+    }
+
     /** Call jcmd as fallback if MBean connection is not available */
     private String executeCommandNoMBean(String command, String... args) throws IOException {
         ProcessBuilder pb = new ProcessBuilder("jcmd", vm.id(), command);
@@ -111,17 +141,21 @@ public class JMXDiagnosticHelper implements AutoCloseable {
         }
         pb.redirectError(ProcessBuilder.Redirect.PIPE);
         Process process = pb.start();
+        // TODO: We should probably read the output and error streams in separate threads to avoid blocking issues
+        // TODO: write neat helper
+        OutputCapturingThread outputT = new OutputCapturingThread(process.getInputStream());
+        outputT.start();
+        OutputCapturingThread errorT = new OutputCapturingThread(process.getErrorStream());
+        errorT.start();
         try {
             process.waitFor();
         } catch (InterruptedException e) {
-            throw  new IOException("jcmd execution interrupted", e);
+            throw new IOException("jcmd execution interrupted", e);
         }
-        String error = new String(process.getErrorStream().readAllBytes());
-        String output = new String(process.getInputStream().readAllBytes());
         if (process.exitValue() != 0) {
-            throw new IOException("jcmd failed: " + error);
+            throw new IOException("jcmd failed: " + outputT.getString());
         }
-        return output;
+        return outputT.getString();
     }
 
     /**

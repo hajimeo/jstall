@@ -663,13 +663,18 @@ You can record diagnostic data with:
 jstall record <all|pid|filter> -o <recording.zip>
 ```
 
-and replay it on any machine using the `-f/--file` option. For an example recording in this repository see the folder: [6529/](./6529/)
+and replay it on any machine using the `-f/--file` option. Use `--full` to also record expensive jcmd commands like VM.classes, VM.class_hierarchy, GC.class_histogram, flame graph and JFR recording.
 
 If no target JVM can be resolved (for example, a PID that does not exist), recording fails early with:
 
 ```text
 No JVM targets found for: <target>
 ```
+
+<!-- BEGIN help_record -->
+```
+```
+<!-- END help_record -->
 
 Replay examples (use your recording ZIP file):
 
